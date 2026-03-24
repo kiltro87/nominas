@@ -413,21 +413,41 @@ if not df_nominas.empty:
                 width="stretch",
             )
 
-        with st.expander("Detalle mensual (líneas originales de nómina)"):
-            original_cols = [
-                "Año",
-                "Mes",
-                "Concepto",
-                "Importe",
-                "Categoría",
-                "Subcategoría",
-                "file_name",
-            ]
-            existing_cols = [c for c in original_cols if c in nominas_view.columns]
-            original_df = nominas_view[existing_cols].copy()
-            if "Importe" in original_df.columns and hide_amounts:
-                original_df["Importe"] = "••••••"
-            st.dataframe(original_df, width="stretch")
+        with st.expander("Desglose mensual"):
+            breakdown = nominas_view.copy()
+            breakdown["Importe_num"] = pd.to_numeric(
+                breakdown["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+                errors="coerce",
+            ).fillna(0.0)
+            breakdown["Periodo"] = (
+                breakdown["Año"].astype(int).astype(str) + "-" + breakdown["Mes"].astype(int).astype(str).str.zfill(2)
+            )
+
+            if period_option == "Todos":
+                month_order = monthly_view["Periodo"].drop_duplicates().tolist()
+            else:
+                month_order = [period_option]
+
+            pivot = (
+                breakdown.pivot_table(
+                    index="Concepto",
+                    columns="Periodo",
+                    values="Importe_num",
+                    aggfunc="sum",
+                    fill_value=0.0,
+                )
+                .reindex(columns=month_order, fill_value=0.0)
+                .reset_index()
+            )
+
+            if hide_amounts:
+                for col in [c for c in pivot.columns if c != "Concepto"]:
+                    pivot[col] = "••••••"
+            else:
+                for col in [c for c in pivot.columns if c != "Concepto"]:
+                    pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
+
+            st.dataframe(pivot, width="stretch")
 
         with st.expander("Definiciones de métricas"):
             st.markdown(
