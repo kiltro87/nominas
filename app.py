@@ -82,6 +82,10 @@ if not df_nominas.empty:
     if monthly.empty or annual.empty:
         st.info("No hay suficientes datos para construir KPIs agregados todavía.")
     else:
+        monthly = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
+        annual = annual.sort_values(["Año"]).reset_index(drop=True)
+        espp_months = espp_months.sort_values(["Año", "Mes"]).reset_index(drop=True)
+
         available_years = sorted(int(y) for y in monthly["Año"].unique())
         filter_col1, filter_col2 = st.columns(2)
         with filter_col1:
@@ -113,42 +117,69 @@ if not df_nominas.empty:
             monthly_view = monthly_view[monthly_view["Periodo"] == period_option].copy()
             espp_view = espp_view[espp_view["Periodo"] == period_option].copy()
 
+        monthly_view = monthly_view.sort_values(["Año", "Mes"]).reset_index(drop=True)
+        annual_view = annual_view.sort_values(["Año"]).reset_index(drop=True)
+        espp_view = espp_view.sort_values(["Año", "Mes"]).reset_index(drop=True)
+
         st.subheader("KPIs mensuales (último mes)")
         m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
         c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Neto mes", format_eur(float(m["neto"])))
+        c1.metric("Bruto mes", format_eur(float(m["total_devengado"])))
         c2.metric("% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%")
-        c3.metric("Ahorro fiscal mes", format_eur(float(m["ahorro_fiscal"])))
+        c3.metric("Neto mes", format_eur(float(m["neto"])))
         c4.metric("Consumo en especie", format_eur(float(m["consumo_especie"])))
         c5.metric("Riqueza real mensual", format_eur(float(m["riqueza_real_mensual"])))
+
+        c6, c7, c8, c9, c10 = st.columns(5)
+        c6.metric("Ahorro fiscal mes", format_eur(float(m["ahorro_fiscal"])))
+        c7.metric("Ahorro jub. empresa mes", format_eur(float(m["ahorro_jub_empresa"])))
+        c8.metric("Ahorro jub. empleado mes", format_eur(float(m["ahorro_jub_empleado"])))
+        c9.metric("Ingresos libres imp. mes", format_eur(float(m["ingresos_libres_impuestos"])))
+        c10.metric("Tipo marginal estimado", f"{float(m['tipo_marginal_estimado']) * 100:.2f}%")
 
         st.subheader("KPIs anuales (último año)")
         y = annual_view.sort_values("Año").iloc[-1]
         a1, a2, a3, a4, a5 = st.columns(5)
-        a1.metric("Neto anual", format_eur(float(y["neto"])))
+        a1.metric("Bruto anual", format_eur(float(y["total_devengado"])))
         a2.metric("% IRPF efectivo anual", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
-        a3.metric("Ahorro jubilación anual", format_eur(float(y["ahorro_jub_total"])))
+        a3.metric("Neto anual", format_eur(float(y["neto"])))
         a4.metric("ESPP Gain anual", format_eur(float(y["espp_gain"])))
         a5.metric("Riqueza real anual", format_eur(float(y["riqueza_real_anual"])))
+
+        a6, a7, a8, a9, a10 = st.columns(5)
+        a6.metric("Ahorro jubilación anual", format_eur(float(y["ahorro_jub_total"])))
+        a7.metric("Ahorro fiscal anual", format_eur(float(y["ahorro_fiscal"])))
+        a8.metric("Consumo en especie anual", format_eur(float(y["consumo_especie"])))
+        a9.metric("Ingresos libres imp. anual", format_eur(float(y["ingresos_libres_impuestos"])))
+        a10.metric("Bruto variable anual", format_eur(float(y["variable_ingreso"])))
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
             st.line_chart(annual_view.set_index("Año")[["neto", "riqueza_real_anual"]])
-            st.line_chart(annual_view.set_index("Año")[["pct_irpf_efectivo_anual", "pct_ss_efectivo_anual"]])
+            annual_pct_chart = annual_view[["Año", "pct_irpf_efectivo_anual", "pct_ss_efectivo_anual"]].copy()
+            annual_pct_chart["% IRPF efectivo anual"] = annual_pct_chart["pct_irpf_efectivo_anual"] * 100
+            annual_pct_chart["% Seguridad Social anual"] = annual_pct_chart["pct_ss_efectivo_anual"] * 100
+            st.line_chart(annual_pct_chart.set_index("Año")[["% IRPF efectivo anual", "% Seguridad Social anual"]])
         else:
             st.line_chart(monthly_view.set_index("Periodo_natural")[["neto", "riqueza_real_mensual"]])
-            st.line_chart(monthly_view.set_index("Periodo_natural")[["pct_irpf", "pct_ss"]])
+            monthly_pct_chart = monthly_view[["Periodo_natural", "pct_irpf", "pct_ss"]].copy()
+            monthly_pct_chart["% IRPF mensual"] = monthly_pct_chart["pct_irpf"] * 100
+            monthly_pct_chart["% Seguridad Social mensual"] = monthly_pct_chart["pct_ss"] * 100
+            st.line_chart(monthly_pct_chart.set_index("Periodo_natural")[["% IRPF mensual", "% Seguridad Social mensual"]])
+        annual_table = annual_view[
+            ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
+        ].copy()
+        for col in ["pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]:
+            annual_table[col] = (annual_table[col].astype(float) * 100).round(2)
         st.dataframe(
-            annual_view[
-                ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
-            ].rename(
+            annual_table.rename(
                 columns={
                     "Año": "Año",
                     "neto": "Neto anual",
                     "delta_neto_vs_anterior": "Delta neto vs año anterior",
                     "pct_crecimiento_neto_yoy": "% crecimiento neto YoY",
                     "pct_irpf_efectivo_anual": "% IRPF efectivo anual",
-                    "delta_irpf_yoy": "Delta IRPF YoY",
+                    "delta_irpf_yoy": "Delta IRPF YoY (pp)",
                 }
             ),
             width="stretch",
@@ -177,11 +208,23 @@ if not df_nominas.empty:
                 "ss_importe",
                 "ahorro_fiscal",
                 "riqueza_real_mensual",
+                "ahorro_jub_empresa",
+                "ahorro_jub_empleado",
+                "ahorro_jub_total",
+                "ingresos_libres_impuestos",
+                "espp_gain",
+                "espp_neto_estimado",
+                "rsu_gain",
+                "rsu_neto_estimado",
+                "fijo_ingreso",
+                "variable_ingreso",
+                "beneficio_especie",
                 "pct_irpf",
                 "pct_ss",
+                "pct_variable",
+                "tipo_marginal_estimado",
             ]
-            st.dataframe(
-                monthly_view[detail_cols].rename(
+            detail_df = monthly_view[detail_cols].rename(
                     columns={
                         "Periodo_natural": "Periodo",
                         "neto": "Neto",
@@ -191,10 +234,28 @@ if not df_nominas.empty:
                         "ss_importe": "Seguridad Social (€)",
                         "ahorro_fiscal": "Ahorro fiscal (€)",
                         "riqueza_real_mensual": "Riqueza real mensual (€)",
+                        "ahorro_jub_empresa": "Ahorro jub. empresa (€)",
+                        "ahorro_jub_empleado": "Ahorro jub. empleado (€)",
+                        "ahorro_jub_total": "Ahorro jubilación total (€)",
+                        "ingresos_libres_impuestos": "Ingresos libres impuestos (€)",
+                        "espp_gain": "ESPP Gain bruto (€)",
+                        "espp_neto_estimado": "ESPP neto estimado (€)",
+                        "rsu_gain": "RSU Gain bruto (€)",
+                        "rsu_neto_estimado": "RSU neto estimado (€)",
+                        "fijo_ingreso": "Ingreso fijo (€)",
+                        "variable_ingreso": "Ingreso variable (€)",
+                        "beneficio_especie": "Beneficio en especie (€)",
                         "pct_irpf": "% IRPF",
                         "pct_ss": "% SS",
+                        "pct_variable": "% variable",
+                        "tipo_marginal_estimado": "Tipo marginal estimado",
                     }
-                ),
+                )
+            for col in ["% IRPF", "% SS", "% variable", "Tipo marginal estimado"]:
+                if col in detail_df.columns:
+                    detail_df[col] = (detail_df[col].astype(float) * 100).round(2)
+            st.dataframe(
+                detail_df,
                 width="stretch",
             )
 
