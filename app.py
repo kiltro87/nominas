@@ -151,7 +151,7 @@ if not df_nominas.empty:
                     "delta_irpf_yoy": "Delta IRPF YoY",
                 }
             ),
-            use_container_width=True,
+            width="stretch",
         )
 
         st.subheader("ESPP Gain por mes")
@@ -160,14 +160,28 @@ if not df_nominas.empty:
                 espp_view[["Periodo_natural", "espp_gain"]].rename(
                     columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain"}
                 ),
-                use_container_width=True,
+                width="stretch",
             )
         else:
-            st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), use_container_width=True)
+            st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), width="stretch")
 
         with st.expander("Detalle mensual completo"):
+            detail_cols = [
+                "Año",
+                "Mes",
+                "Periodo_natural",
+                "neto",
+                "total_devengado",
+                "total_deducir",
+                "irpf_importe",
+                "ss_importe",
+                "ahorro_fiscal",
+                "riqueza_real_mensual",
+                "pct_irpf",
+                "pct_ss",
+            ]
             st.dataframe(
-                monthly_view.rename(
+                monthly_view[detail_cols].rename(
                     columns={
                         "Periodo_natural": "Periodo",
                         "neto": "Neto",
@@ -181,7 +195,7 @@ if not df_nominas.empty:
                         "pct_ss": "% SS",
                     }
                 ),
-                use_container_width=True,
+                width="stretch",
             )
 
         with st.expander("Definiciones de métricas"):

@@ -131,7 +131,9 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
     )
     monthly["pct_irpf"] = (monthly["irpf_importe"] / monthly["total_devengado"]).fillna(0.0)
     # Si la nómina informa el % explícitamente, priorizarlo sobre la aproximación.
-    monthly["pct_irpf"] = monthly["irpf_pct_nomina"].fillna(monthly["pct_irpf"])
+    monthly["pct_irpf"] = monthly["irpf_pct_nomina"].where(
+        monthly["irpf_pct_nomina"].notna(), monthly["pct_irpf"]
+    )
     monthly["pct_ss"] = (monthly["ss_importe"] / monthly["total_devengado"]).fillna(0.0)
     monthly["pct_variable"] = (monthly["variable_ingreso"] / monthly["total_devengado"]).fillna(0.0)
     monthly["Periodo"] = monthly["Año"].astype(str) + "-" + monthly["Mes"].astype(str).str.zfill(2)
