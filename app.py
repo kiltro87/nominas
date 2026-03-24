@@ -56,7 +56,7 @@ def draw_monthly_chart(df: pd.DataFrame, y_columns: list[str], title: str, perce
         )
         .properties(title=title)
     )
-    st.altair_chart(chart, width="stretch")
+    st.altair_chart(chart, use_container_width=True)
 def get_runtime_config() -> dict:
     # Prioridad 1: config local (desarrollo)
     cfg_path = Path("config.json")
