@@ -68,7 +68,7 @@ def _build_base(df: pd.DataFrame) -> pd.DataFrame:
 
 def _extract_irpf_pct_from_concept(series: pd.Series) -> float | None:
     # Caso típico: "TRIBUTACION I.R.P.F.33,17"
-    pattern = re.compile(r"IRPF\.?\s*([0-9]{1,2},[0-9]{2})", flags=re.IGNORECASE)
+    pattern = re.compile(r"I\.?R\.?P\.?F\.?\s*([0-9]{1,2},[0-9]{2})", flags=re.IGNORECASE)
     for value in series.astype(str):
         m = pattern.search(value)
         if m:

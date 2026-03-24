@@ -60,6 +60,18 @@ def test_importe_spanish_decimal_parsing_regression() -> None:
     assert round(m["neto"], 2) == 18.13
 
 
+def test_irpf_pct_is_read_from_dotted_concept_format() -> None:
+    df = pd.DataFrame(
+        [
+            {"Año": 2025, "Mes": 12, "Concepto": "SALARIO BASE", "Importe": "9.765,62", "Categoría": "Ingreso", "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 12, "Concepto": "TRIBUTACION I.R.P.F.33,17", "Importe": "-1.779,24", "Categoría": "Devengo", "Subcategoría": "Impuestos (IRPF)"},
+        ]
+    )
+    monthly, _, _ = build_all_kpis(df)
+    m = monthly.iloc[0]
+    assert round(float(m["pct_irpf"]) * 100, 2) == 33.17
+
+
 def test_negative_ingreso_reduces_devengado_not_deducciones() -> None:
     df = pd.DataFrame(
         [
