@@ -1,0 +1,78 @@
+name: Ingesta Nominas Drive to Sheets
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Maximo de PDFs a procesar (opcional)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 8 1 * *"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run syntax checks
+        run: python -m py_compile extractor.py drive_ingestor.py kpi_builder.py app.py sheets_client.py
+
+      - name: Run unit tests
+        run: python -m pytest -q
+
+  ingesta:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write credentials and config
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: |
+          test -n "$GOOGLE_CREDENTIALS_JSON"
+          test -n "$DRIVE_FOLDER_ID"
+          test -n "$SPREADSHEET_ID"
+          printf '%s' "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+          python - <<'PY'
+          import json
+          import os
+
+          cfg = {
+              "credentials_path": "credentials.json",
+              "drive_folder_id": os.environ["DRIVE_FOLDER_ID"],
+              "spreadsheet_id": os.environ["SPREADSHEET_ID"],
+          }
+          with open("config.json", "w", encoding="utf-8") as f:
+              json.dump(cfg, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Run payroll ingestor
+        run: |
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            python drive_ingestor.py --config config.json --limit "${{ github.event.inputs.limit }}"
+          else
+            python drive_ingestor.py --config config.json
+          fi
