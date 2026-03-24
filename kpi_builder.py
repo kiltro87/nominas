@@ -1,8 +1,24 @@
 from __future__ import annotations
 
+import re
 from typing import Dict, Tuple
 
 import pandas as pd
+
+MONTH_NAMES_ES = {
+    1: "Ene",
+    2: "Feb",
+    3: "Mar",
+    4: "Abr",
+    5: "May",
+    6: "Jun",
+    7: "Jul",
+    8: "Ago",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dic",
+}
 
 
 def _norm(s: str) -> str:
@@ -37,7 +53,18 @@ def _build_base(df: pd.DataFrame) -> pd.DataFrame:
     out["Año"] = out["Año"].astype(int)
     out["Mes"] = out["Mes"].astype(int)
     out["Periodo"] = out["Año"].astype(str) + "-" + out["Mes"].astype(str).str.zfill(2)
+    out["Periodo_natural"] = out["Mes"].map(MONTH_NAMES_ES) + " " + out["Año"].astype(str)
     return out
+
+
+def _extract_irpf_pct_from_concept(series: pd.Series) -> float | None:
+    # Caso típico: "TRIBUTACION I.R.P.F.33,17"
+    pattern = re.compile(r"IRPF\.?\s*([0-9]{1,2},[0-9]{2})", flags=re.IGNORECASE)
+    for value in series.astype(str):
+        m = pattern.search(value)
+        if m:
+            return float(m.group(1).replace(",", ".")) / 100.0
+    return None
 
 
 def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
@@ -83,6 +110,10 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
                 "ingresos_libres_impuestos": ingresos_libres_impuestos,
                 "espp_gain": espp_gain,
                 "rsu_gain": rsu_gain,
+                "Periodo_natural": f"{MONTH_NAMES_ES.get(int(month), str(month))} {year}",
+                "irpf_pct_nomina": _extract_irpf_pct_from_concept(
+                    g.loc[g["Subcat_norm"] == "IMPUESTOS (IRPF)", "Concepto"]
+                ),
             }
         )
 
@@ -99,6 +130,8 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
         monthly["neto"] + monthly["ahorro_jub_empresa"] + monthly["rsu_neto_estimado"] + monthly["espp_neto_estimado"]
     )
     monthly["pct_irpf"] = (monthly["irpf_importe"] / monthly["total_devengado"]).fillna(0.0)
+    # Si la nómina informa el % explícitamente, priorizarlo sobre la aproximación.
+    monthly["pct_irpf"] = monthly["irpf_pct_nomina"].fillna(monthly["pct_irpf"])
     monthly["pct_ss"] = (monthly["ss_importe"] / monthly["total_devengado"]).fillna(0.0)
     monthly["pct_variable"] = (monthly["variable_ingreso"] / monthly["total_devengado"]).fillna(0.0)
     monthly["Periodo"] = monthly["Año"].astype(str) + "-" + monthly["Mes"].astype(str).str.zfill(2)
@@ -145,8 +178,8 @@ def build_annual_kpis(monthly: pd.DataFrame) -> pd.DataFrame:
 
 def build_espp_months(monthly: pd.DataFrame) -> pd.DataFrame:
     if monthly.empty:
-        return pd.DataFrame(columns=["Año", "Mes", "Periodo", "espp_gain"])
-    out = monthly.loc[monthly["espp_gain"] > 0, ["Año", "Mes", "Periodo", "espp_gain"]].copy()
+        return pd.DataFrame(columns=["Año", "Mes", "Periodo", "Periodo_natural", "espp_gain"])
+    out = monthly.loc[monthly["espp_gain"] > 0, ["Año", "Mes", "Periodo", "Periodo_natural", "espp_gain"]].copy()
     return out.sort_values(["Año", "Mes"]).reset_index(drop=True)
 
 
