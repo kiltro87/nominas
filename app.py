@@ -415,6 +415,9 @@ if not df_nominas.empty:
 
         with st.expander("Desglose mensual"):
             breakdown = nominas_view.copy()
+            breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
+            irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\\s+I\\.?R\\.?P\\.?F\\.?", regex=True)
+            breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
             breakdown["Importe_num"] = pd.to_numeric(
                 breakdown["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
                 errors="coerce",
@@ -430,7 +433,7 @@ if not df_nominas.empty:
 
             pivot = (
                 breakdown.pivot_table(
-                    index="Concepto",
+                    index="Concepto_agrupado",
                     columns="Periodo",
                     values="Importe_num",
                     aggfunc="sum",
@@ -439,6 +442,7 @@ if not df_nominas.empty:
                 .reindex(columns=month_order, fill_value=0.0)
                 .reset_index()
             )
+            pivot = pivot.rename(columns={"Concepto_agrupado": "Concepto"})
 
             if hide_amounts:
                 for col in [c for c in pivot.columns if c != "Concepto"]:
