@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
@@ -55,7 +56,19 @@ def get_runtime_config() -> dict:
             payload = dict(raw_secret)
         else:
             raw_text = str(raw_secret).strip()
-            payload = json.loads(raw_text)
+            try:
+                payload = json.loads(raw_text)
+            except json.JSONDecodeError:
+                # Fallback: algunos secretos llegan con saltos reales en private_key.
+                # Re-escapa solo ese campo para convertirlo en JSON válido.
+                pattern = r'("private_key"\s*:\s*")(.*?)(")'
+                match = re.search(pattern, raw_text, flags=re.DOTALL)
+                if not match:
+                    raise
+                raw_key = match.group(2).replace("\\n", "\n")
+                escaped_key = raw_key.replace("\\", "\\\\").replace("\n", "\\n")
+                fixed = raw_text[: match.start(2)] + escaped_key + raw_text[match.end(2) :]
+                payload = json.loads(fixed)
 
         # Evita JSON inválido si private_key llega con saltos no escapados.
         if "private_key" in payload and isinstance(payload["private_key"], str):
