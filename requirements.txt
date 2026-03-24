@@ -1,6 +1,7 @@
 pdfplumber
 pandas
 streamlit
+altair<5
 google-api-python-client
 google-auth
 pytest
