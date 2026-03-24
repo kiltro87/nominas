@@ -116,3 +116,17 @@ def test_refunds_in_deducciones_reduce_total_deducir() -> None:
     assert m["total_devengado"] == 1000
     assert m["total_deducir"] == 230
     assert m["neto"] == 770
+
+
+def test_missing_categoria_column_falls_back_to_sign_logic() -> None:
+    df = pd.DataFrame(
+        [
+            {"Año": 2025, "Mes": 1, "Concepto": "SALARIO BASE", "Importe": 1000, "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TRIBUTACION I.R.P.F.", "Importe": -300, "Subcategoría": "Impuestos (IRPF)"},
+        ]
+    )
+    monthly, _, _ = build_all_kpis(df)
+    m = monthly.iloc[0]
+    assert m["total_devengado"] == 1000
+    assert m["total_deducir"] == 300
+    assert m["neto"] == 700

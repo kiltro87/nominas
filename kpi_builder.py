@@ -44,12 +44,19 @@ def _as_float(series: pd.Series) -> pd.Series:
 
 def _build_base(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-    out["Año"] = pd.to_numeric(out["Año"], errors="coerce").astype("Int64")
-    out["Mes"] = pd.to_numeric(out["Mes"], errors="coerce").astype("Int64")
-    out["Importe"] = _as_float(out["Importe"])
-    out["Categoria_norm"] = out.get("Categoría", "").astype(str).map(_norm)
-    out["Concepto_norm"] = out["Concepto"].astype(str).map(_norm)
-    out["Subcat_norm"] = out["Subcategoría"].astype(str).map(_norm)
+    n = len(out)
+
+    def safe_col(name: str, default: str = "") -> pd.Series:
+        if name in out.columns:
+            return out[name].astype(str)
+        return pd.Series([default] * n, index=out.index, dtype="object")
+
+    out["Año"] = pd.to_numeric(safe_col("Año"), errors="coerce").astype("Int64")
+    out["Mes"] = pd.to_numeric(safe_col("Mes"), errors="coerce").astype("Int64")
+    out["Importe"] = _as_float(safe_col("Importe"))
+    out["Categoria_norm"] = safe_col("Categoría").map(_norm)
+    out["Concepto_norm"] = safe_col("Concepto").map(_norm)
+    out["Subcat_norm"] = safe_col("Subcategoría").map(_norm)
     # Compatibilidad con históricos: algunos refund se guardaron con signo invertido.
     # En deducciones, Tax/ESPP refund deben reducir deducciones (importe positivo final).
     refund_mask = (
@@ -58,6 +65,20 @@ def _build_base(df: pd.DataFrame) -> pd.DataFrame:
         & out["Concepto_norm"].str.contains("TAX REFUND|ESPP REFUND", regex=True)
     )
     out.loc[refund_mask, "Importe"] = out.loc[refund_mask, "Importe"].abs()
+    out["is_retrib_flexible"] = out["Concepto_norm"].str.contains("RETRIB. FLEXIBLE", regex=False)
+    out["is_irpf_subcat"] = out["Subcat_norm"] == "IMPUESTOS (IRPF)"
+    out["is_ss_subcat"] = out["Subcat_norm"] == "SEGURIDAD SOCIAL"
+    out["is_fijo_subcat"] = out["Subcat_norm"] == "INGRESO FIJO"
+    out["is_variable_subcat"] = out["Subcat_norm"].str.startswith("INGRESO VARIABLE")
+    out["is_beneficio_subcat"] = out["Subcat_norm"] == "BENEFICIO EN ESPECIE"
+    out["is_ahorro_jub_empresa"] = out["Concepto_norm"].str.contains("PLAN PENSIONES - APORT EMPRESA")
+    out["is_ahorro_jub_empleado"] = out["Concepto_norm"].str.contains("APORT. EMPLEADO P. PENS.")
+    out["is_consumo_especie"] = out["Concepto_norm"].str.contains(
+        "TICKET RESTAURANT|SEGURO MEDICO|SEGURO VIDA|FITNESS|TICKET TRANSPORTE|RETRIB. FLEXIBLE"
+    )
+    out["is_no_irpf_concept"] = out["Concepto_norm"].str.contains("NO IRPF")
+    out["is_espp_gain"] = out["Subcat_norm"] == "INGRESO VARIABLE (ESPP)"
+    out["is_rsu_gain"] = out["Subcat_norm"] == "INGRESO VARIABLE (RSU)"
     out = out.dropna(subset=["Año", "Mes"])
     out["Año"] = out["Año"].astype(int)
     out["Mes"] = out["Mes"].astype(int)
@@ -86,9 +107,8 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
         # - Retrib. Flexible se muestra en DEVENGOS con signo negativo y debe
         #   restar del total devengado.
         # - Tax Refund / ESPP Refund (o deducción) se tratan como deducciones.
-        is_retrib_flexible = g["Concepto_norm"].str.contains("RETRIB. FLEXIBLE", regex=False)
-        is_ingreso = (g["Categoria_norm"] == "INGRESO") | is_retrib_flexible
-        is_devengo = (g["Categoria_norm"] == "DEVENGO") & (~is_retrib_flexible)
+        is_ingreso = (g["Categoria_norm"] == "INGRESO") | g["is_retrib_flexible"]
+        is_devengo = (g["Categoria_norm"] == "DEVENGO") & (~g["is_retrib_flexible"])
         if not is_ingreso.any() and not is_devengo.any():
             # Fallback para históricos sin columna Categoría normalizada.
             is_ingreso = g["Importe"] > 0
@@ -96,22 +116,17 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
 
         total_devengado = g.loc[is_ingreso, "Importe"].sum()
         total_deducir = -g.loc[is_devengo, "Importe"].sum()
-        irpf_importe = -g.loc[g["Subcat_norm"] == "IMPUESTOS (IRPF)", "Importe"].sum()
-        ss_importe = -g.loc[g["Subcat_norm"] == "SEGURIDAD SOCIAL", "Importe"].sum()
-        fijo_ingreso = g.loc[g["Subcat_norm"] == "INGRESO FIJO", "Importe"].sum()
-        variable_ingreso = g.loc[g["Subcat_norm"].str.startswith("INGRESO VARIABLE"), "Importe"].sum()
-        beneficio_especie = g.loc[g["Subcat_norm"] == "BENEFICIO EN ESPECIE", "Importe"].sum()
-        ahorro_jub_empresa = g.loc[g["Concepto_norm"].str.contains("PLAN PENSIONES - APORT EMPRESA"), "Importe"].sum()
-        ahorro_jub_empleado = -g.loc[g["Concepto_norm"].str.contains("APORT. EMPLEADO P. PENS."), "Importe"].sum()
-        consumo_especie = g.loc[
-            g["Concepto_norm"].str.contains(
-                "TICKET RESTAURANT|SEGURO MEDICO|SEGURO VIDA|FITNESS|TICKET TRANSPORTE|RETRIB. FLEXIBLE"
-            ),
-            "Importe",
-        ].abs().sum()
-        ingresos_libres_impuestos = g.loc[g["Concepto_norm"].str.contains("NO IRPF"), "Importe"].sum()
-        espp_gain = g.loc[g["Subcat_norm"] == "INGRESO VARIABLE (ESPP)", "Importe"].sum()
-        rsu_gain = g.loc[g["Subcat_norm"] == "INGRESO VARIABLE (RSU)", "Importe"].sum()
+        irpf_importe = -g.loc[g["is_irpf_subcat"], "Importe"].sum()
+        ss_importe = -g.loc[g["is_ss_subcat"], "Importe"].sum()
+        fijo_ingreso = g.loc[g["is_fijo_subcat"], "Importe"].sum()
+        variable_ingreso = g.loc[g["is_variable_subcat"], "Importe"].sum()
+        beneficio_especie = g.loc[g["is_beneficio_subcat"], "Importe"].sum()
+        ahorro_jub_empresa = g.loc[g["is_ahorro_jub_empresa"], "Importe"].sum()
+        ahorro_jub_empleado = -g.loc[g["is_ahorro_jub_empleado"], "Importe"].sum()
+        consumo_especie = g.loc[g["is_consumo_especie"], "Importe"].abs().sum()
+        ingresos_libres_impuestos = g.loc[g["is_no_irpf_concept"], "Importe"].sum()
+        espp_gain = g.loc[g["is_espp_gain"], "Importe"].sum()
+        rsu_gain = g.loc[g["is_rsu_gain"], "Importe"].sum()
 
         rows.append(
             {
@@ -133,7 +148,7 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
                 "rsu_gain": rsu_gain,
                 "Periodo_natural": f"{MONTH_NAMES_ES.get(int(month), str(month))} {year}",
                 "irpf_pct_nomina": _extract_irpf_pct_from_concept(
-                    g.loc[g["Subcat_norm"] == "IMPUESTOS (IRPF)", "Concepto"]
+                    g.loc[g["is_irpf_subcat"], "Concepto"]
                 ),
             }
         )

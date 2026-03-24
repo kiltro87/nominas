@@ -434,7 +434,7 @@ if not df_nominas.empty:
                 """
 - `Riqueza real mensual = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
 - `% IRPF mensual = porcentaje informado en nómina (ej. 33,17%) si está disponible; si no, aproximación por ratio`
-- `Ahorro fiscal = ingresos_libres_impuestos * %IRPF aproximado + ahorro_jub_empresa`
+- `Ahorro fiscal = ingresos_libres_impuestos * tipo marginal estimado (interno) + ahorro_jub_empresa`
 - `Ingresos recibidos = neto + consumo_especie + ahorro_jub_total + espp_neto_estimado + rsu_neto_estimado`
 - `IRPF efectivo anual = irpf_importe_anual / total_devengado_anual`
                 """

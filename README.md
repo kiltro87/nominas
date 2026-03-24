@@ -58,7 +58,7 @@ python3 drive_ingestor.py --config config.json --limit 5
 - Hoja `Control`:
   - file_id, file_name, md5_drive, source_folder_breadcrumb, renamed_to, target_folder_breadcrumb, rules_version, processed_at_utc, status, error
 
-`Control` evita reprocesar el mismo archivo por `file_id`.
+`Control` evita reprocesar el mismo archivo por `file_id` y también por `md5_drive` (deduplicación lógica por contenido).
 
 ## 5) Renombrado y organización automática en Drive
 
@@ -139,6 +139,7 @@ Puedes pasar `limit` en ejecución manual para pruebas.
 - La lectura de Drive es recursiva en subcarpetas.
 - Si necesitas reprocesar un PDF concreto, elimina su `file_id` en la pestaña `Control` y vuelve a ejecutar ingesta.
 - `rules_version` en `Control` permite auditar con qué versión de `subcategorias.json` se clasificó cada fichero.
+- Deduplicación: si un PDF se vuelve a subir con otro nombre/ID pero mismo contenido (`md5_drive`), se omite automáticamente.
 
 ## 10) Tests
 

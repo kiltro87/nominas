@@ -5,7 +5,7 @@ import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Tuple
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -180,11 +180,26 @@ def download_file(drive_service, file_id: str, target_path: Path) -> None:
             _, done = downloader.next_chunk()
 
 
-def get_processed_file_ids(sheets: SheetsClient) -> Set[str]:
-    rows = sheets.get_all_values(CONTROL_SHEET)
+def _extract_processed_registry(rows: List[List[str]]) -> Tuple[Set[str], Set[str]]:
+    """Devuelve sets de file_id y md5 ya procesados desde la hoja Control."""
     if len(rows) <= 1:
-        return set()
-    return {r[0] for r in rows[1:] if r and r[0]}
+        return set(), set()
+    header = rows[0]
+    idx_file = header.index("file_id") if "file_id" in header else 0
+    idx_md5 = header.index("md5_drive") if "md5_drive" in header else -1
+    processed_ids: Set[str] = set()
+    processed_md5: Set[str] = set()
+    for r in rows[1:]:
+        if idx_file >= 0 and len(r) > idx_file and r[idx_file]:
+            processed_ids.add(r[idx_file])
+        if idx_md5 >= 0 and len(r) > idx_md5 and r[idx_md5]:
+            processed_md5.add(r[idx_md5])
+    return processed_ids, processed_md5
+
+
+def get_processed_registry(sheets: SheetsClient) -> Tuple[Set[str], Set[str]]:
+    rows = sheets.get_all_values(CONTROL_SHEET)
+    return _extract_processed_registry(rows)
 
 
 def to_nominas_rows(sheet_rows: List[Dict[str, Any]], file_id: str, file_name: str) -> List[List[Any]]:
@@ -233,7 +248,7 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
     ensure_header(sheets, CONTROL_SHEET, CONTROL_HEADER)
     rules_version = get_subcategory_rules_version()
 
-    processed_ids = get_processed_file_ids(sheets)
+    processed_ids, processed_md5 = get_processed_registry(sheets)
     files = list_pdf_files(drive, folder_id)
 
     processed = 0
@@ -249,7 +264,7 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
         file_name = f.get("name", "")
         md5 = f.get("md5Checksum", "")
 
-        if file_id in processed_ids:
+        if file_id in processed_ids or (md5 and md5 in processed_md5):
             skipped += 1
             continue
 
