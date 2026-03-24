@@ -1,5 +1,6 @@
 import json
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Dict
 
@@ -50,7 +51,7 @@ def get_runtime_config() -> dict:
         payload: Dict[str, Any]
 
         # Soporta secret como objeto TOML o como string JSON.
-        if isinstance(raw_secret, dict):
+        if isinstance(raw_secret, Mapping):
             payload = dict(raw_secret)
         else:
             raw_text = str(raw_secret).strip()
