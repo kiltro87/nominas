@@ -1,6 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
+from typing import Any, Dict
 
 import pandas as pd
 import streamlit as st
@@ -45,7 +46,21 @@ def get_runtime_config() -> dict:
     # Prioridad 2: Streamlit Cloud secrets
     if "GOOGLE_CREDENTIALS_JSON" in st.secrets and "SPREADSHEET_ID" in st.secrets:
         temp_creds = Path(tempfile.gettempdir()) / "streamlit_credentials.json"
-        temp_creds.write_text(str(st.secrets["GOOGLE_CREDENTIALS_JSON"]), encoding="utf-8")
+        raw_secret: Any = st.secrets["GOOGLE_CREDENTIALS_JSON"]
+        payload: Dict[str, Any]
+
+        # Soporta secret como objeto TOML o como string JSON.
+        if isinstance(raw_secret, dict):
+            payload = dict(raw_secret)
+        else:
+            raw_text = str(raw_secret).strip()
+            payload = json.loads(raw_text)
+
+        # Evita JSON inválido si private_key llega con saltos no escapados.
+        if "private_key" in payload and isinstance(payload["private_key"], str):
+            payload["private_key"] = payload["private_key"].replace("\r\n", "\n")
+
+        temp_creds.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return {
             "credentials_path": str(temp_creds),
             "spreadsheet_id": str(st.secrets["SPREADSHEET_ID"]),
