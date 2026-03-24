@@ -10,10 +10,8 @@ from typing import Any, Dict, List, Set
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
-import pandas as pd
 
 from extractor import extract_payroll, get_subcategory_rules_version
-from kpi_builder import build_all_kpis
 from sheets_client import SheetsClient, ensure_header
 
 
@@ -21,9 +19,6 @@ DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 NOMINAS_SHEET = "Nominas"
 CONTROL_SHEET = "Control"
-MONTHLY_SHEET = "Mensual"
-ANNUAL_SHEET = "Anual"
-QUALITY_SHEET = "AlertasCalidad"
 
 NOMINAS_HEADER = ["Año", "Mes", "Concepto", "Importe", "Categoría", "Subcategoría", "file_id", "file_name"]
 CONTROL_HEADER = [
@@ -38,7 +33,6 @@ CONTROL_HEADER = [
     "status",
     "error",
 ]
-QUALITY_HEADER = ["nivel", "año", "mes", "periodo", "alerta", "detalle"]
 
 MONTH_NAMES_ES = {
     1: "Enero",
@@ -225,61 +219,6 @@ def build_file_quality_alerts(result: Dict[str, Any]) -> List[str]:
     return alerts
 
 
-def _df_to_rows(df: pd.DataFrame) -> List[List[Any]]:
-    if df.empty:
-        return []
-    clean = df.fillna("")
-    return [list(clean.columns)] + clean.values.tolist()
-
-
-def build_quality_alerts_from_kpis(monthly: pd.DataFrame) -> pd.DataFrame:
-    if monthly.empty:
-        return pd.DataFrame(columns=QUALITY_HEADER)
-    alerts: List[Dict[str, Any]] = []
-    median_irpf = float(monthly["pct_irpf"].median())
-    for _, row in monthly.iterrows():
-        if abs(float(row["pct_irpf"]) - median_irpf) > 0.08:
-            alerts.append(
-                {
-                    "nivel": "mensual",
-                    "año": int(row["Año"]),
-                    "mes": int(row["Mes"]),
-                    "periodo": row["Periodo"],
-                    "alerta": "Desviación % IRPF mensual",
-                    "detalle": f"pct_irpf={row['pct_irpf']:.4f} vs mediana={median_irpf:.4f}",
-                }
-            )
-        if float(row["total_devengado"]) <= 0:
-            alerts.append(
-                {
-                    "nivel": "mensual",
-                    "año": int(row["Año"]),
-                    "mes": int(row["Mes"]),
-                    "periodo": row["Periodo"],
-                    "alerta": "Total devengado no positivo",
-                    "detalle": f"total_devengado={row['total_devengado']}",
-                }
-            )
-    return pd.DataFrame(alerts, columns=QUALITY_HEADER)
-
-
-def refresh_kpi_snapshots(sheets: SheetsClient) -> Dict[str, int]:
-    values = sheets.get_all_values(NOMINAS_SHEET)
-    if len(values) < 2:
-        sheets.replace_sheet_values(MONTHLY_SHEET, [["info"], ["Sin datos en Nominas"]])
-        sheets.replace_sheet_values(ANNUAL_SHEET, [["info"], ["Sin datos en Nominas"]])
-        sheets.replace_sheet_values(QUALITY_SHEET, [QUALITY_HEADER])
-        return {"monthly_rows": 0, "annual_rows": 0, "quality_alerts": 0}
-
-    df_nominas = pd.DataFrame(values[1:], columns=values[0])
-    monthly, annual, _ = build_all_kpis(df_nominas)
-    quality = build_quality_alerts_from_kpis(monthly)
-    sheets.replace_sheet_values(MONTHLY_SHEET, _df_to_rows(monthly))
-    sheets.replace_sheet_values(ANNUAL_SHEET, _df_to_rows(annual))
-    sheets.replace_sheet_values(QUALITY_SHEET, _df_to_rows(quality) if not quality.empty else [QUALITY_HEADER])
-    return {"monthly_rows": len(monthly), "annual_rows": len(annual), "quality_alerts": len(quality)}
-
-
 def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str, Any]:
     cfg = load_config(config_path)
     credentials_path = cfg["credentials_path"]
@@ -290,12 +229,8 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
     sheets = SheetsClient(credentials_path, spreadsheet_id)
     sheets.ensure_sheet(NOMINAS_SHEET)
     sheets.ensure_sheet(CONTROL_SHEET)
-    sheets.ensure_sheet(MONTHLY_SHEET)
-    sheets.ensure_sheet(ANNUAL_SHEET)
-    sheets.ensure_sheet(QUALITY_SHEET)
     ensure_header(sheets, NOMINAS_SHEET, NOMINAS_HEADER)
     ensure_header(sheets, CONTROL_SHEET, CONTROL_HEADER)
-    ensure_header(sheets, QUALITY_SHEET, QUALITY_HEADER)
     rules_version = get_subcategory_rules_version()
 
     processed_ids = get_processed_file_ids(sheets)
@@ -385,14 +320,12 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
                 ]],
             )
 
-    snapshot_meta = refresh_kpi_snapshots(sheets)
     return {
         "processed": processed,
         "skipped_already_processed": skipped,
         "errors": errors,
         "total_drive_files_seen": len(files),
         "rules_version": rules_version,
-        "snapshots": snapshot_meta,
         "details": details,
     }
 

@@ -7,7 +7,7 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 - `extractor.py`: extracción PDF (multi página) + clasificación de conceptos + validación de neto.
 - `drive_ingestor.py`: ingesta automática de Drive -> Sheets (recursiva en subcarpetas), con control de duplicados.
 - `kpi_builder.py`: cálculo de métricas mensuales, anuales y comparativas YoY.
-- `app.py`: dashboard Streamlit + procesamiento manual de PDF.
+- `app.py`: dashboard Streamlit de análisis de KPIs.
 - `subcategorias.json`: catálogo editable de matching de conceptos -> subcategorías.
 
 ## 1) Instalación
@@ -57,12 +57,6 @@ python3 drive_ingestor.py --config config.json --limit 5
   - Año, Mes, Concepto, Importe, Categoría, Subcategoría, file_id, file_name
 - Hoja `Control`:
   - file_id, file_name, md5_drive, source_folder_breadcrumb, renamed_to, target_folder_breadcrumb, rules_version, processed_at_utc, status, error
-- Hoja `Mensual`:
-  - snapshot de KPIs mensuales calculados desde `Nominas`.
-- Hoja `Anual`:
-  - snapshot de KPIs anuales + comparativa YoY.
-- Hoja `AlertasCalidad`:
-  - alertas de calidad detectadas en KPIs (ej. desviaciones fuertes de % IRPF).
 
 `Control` evita reprocesar el mismo archivo por `file_id`.
 
@@ -158,4 +152,4 @@ Cobertura actual de tests:
 
 - parser de período y normalización monetaria
 - clasificación de conceptos y signo de deducciones
-- cálculo de KPIs mensuales/anuales y comparativa YoY
+- cálculo de KPIs mensuales/anuales y comparativa YoY (a partir de `Nominas`)

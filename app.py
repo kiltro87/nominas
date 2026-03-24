@@ -201,14 +201,20 @@ if not df_nominas.empty:
         a9.metric("Ingresos libres imp. anual", show_eur(float(y["ingresos_libres_impuestos"])))
         a10.metric("Bruto variable anual", show_eur(float(y["variable_ingreso"])))
 
-        st.markdown("---")
-        st.subheader("Sección anual: Jubilación, ESPP y RSU")
-        j1, j2, j3, j4, j5 = st.columns(5)
-        j1.metric("Aport. empresa anual", show_eur(float(y["ahorro_jub_empresa"])))
-        j2.metric("Aport. empleado anual", show_eur(float(y["ahorro_jub_empleado"])))
-        j3.metric("ESPP neto estimado anual", show_eur(float(y["espp_neto_estimado"])))
-        j4.metric("RSU Gain anual", show_eur(float(y["rsu_gain"])))
-        j5.metric("RSU neto estimado anual", show_eur(float(y["rsu_neto_estimado"])))
+        st.markdown("##### Jubilación, ESPP y RSU")
+        grp1, grp2, grp3 = st.columns(3)
+        with grp1:
+            st.caption("Jubilación")
+            st.metric("Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
+            st.metric("Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
+        with grp2:
+            st.caption("ESPP")
+            st.metric("ESPP bruto", show_eur(float(y["espp_gain"])))
+            st.metric("ESPP neto estimado", show_eur(float(y["espp_neto_estimado"])))
+        with grp3:
+            st.caption("RSU")
+            st.metric("RSU bruto", show_eur(float(y["rsu_gain"])))
+            st.metric("RSU neto estimado", show_eur(float(y["rsu_neto_estimado"])))
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
