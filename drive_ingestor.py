@@ -107,6 +107,10 @@ def list_pdf_files(drive_service, folder_id: str) -> List[Dict[str, Any]]:
     return files
 
 
+def should_skip_file(file_name: str) -> bool:
+    return file_name.strip().lower().startswith("certificado")
+
+
 def ensure_year_folder(drive_service, root_folder_id: str, year: int) -> str:
     folder_name = str(year)
     query = (
@@ -263,6 +267,10 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
         file_id = f["id"]
         file_name = f.get("name", "")
         md5 = f.get("md5Checksum", "")
+
+        if should_skip_file(file_name):
+            skipped += 1
+            continue
 
         if file_id in processed_ids or (md5 and md5 in processed_md5):
             skipped += 1
