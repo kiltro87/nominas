@@ -325,7 +325,9 @@ def classify_entry(
     subcategory = _match_subcategory(concept, rules)
 
     if ded is not None:
-        return "Devengo", subcategory, -abs(ded)
+        # DEDUCCIONES puede traer importes negativos (refund): deben mantener signo.
+        # Ejemplo: ded=+100 -> importe=-100, ded=-100 -> importe=+100.
+        return "Devengo", subcategory, -ded
 
     if dev is not None:
         if dev < 0:

@@ -175,12 +175,11 @@ if not df_nominas.empty:
         c4.metric("Consumo en especie", show_eur(float(m["consumo_especie"])))
         c5.metric("Riqueza real mensual", show_eur(float(m["riqueza_real_mensual"])))
 
-        c6, c7, c8, c9, c10 = st.columns(5)
+        c6, c7, c8, c9 = st.columns(4)
         c6.metric("Ahorro fiscal mes", show_eur(float(m["ahorro_fiscal"])))
         c7.metric("Ahorro jub. empresa mes", show_eur(float(m["ahorro_jub_empresa"])))
         c8.metric("Ahorro jub. empleado mes", show_eur(float(m["ahorro_jub_empleado"])))
         c9.metric("Ingresos libres imp. mes", show_eur(float(m["ingresos_libres_impuestos"])))
-        c10.metric("Tipo marginal estimado", f"{float(m['tipo_marginal_estimado']) * 100:.2f}%")
 
         annual_title = "KPIs anuales"
         if year_option == "Todos":
@@ -288,7 +287,6 @@ if not df_nominas.empty:
                 "pct_irpf",
                 "pct_ss",
                 "pct_variable",
-                "tipo_marginal_estimado",
             ]
             detail_df = monthly_view[detail_cols].rename(
                     columns={
@@ -314,10 +312,9 @@ if not df_nominas.empty:
                         "pct_irpf": "% IRPF",
                         "pct_ss": "% SS",
                         "pct_variable": "% variable",
-                        "tipo_marginal_estimado": "Tipo marginal estimado",
                     }
                 )
-            for col in ["% IRPF", "% SS", "% variable", "Tipo marginal estimado"]:
+            for col in ["% IRPF", "% SS", "% variable"]:
                 if col in detail_df.columns:
                     detail_df[col] = (detail_df[col].astype(float) * 100).round(2)
             detail_df = apply_privacy_to_columns(
@@ -352,10 +349,8 @@ if not df_nominas.empty:
             st.markdown(
                 """
 - `Riqueza real mensual = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
-- `Tipo marginal estimado = irpf_importe / total_devengado` (capado entre 0% y 60%)
 - `% IRPF mensual = porcentaje informado en nómina (ej. 33,17%) si está disponible; si no, aproximación por ratio`
-- `Diferencia clave: % IRPF es el porcentaje retenido en nómina; tipo marginal estimado es una aproximación útil para estimar netos de RSU/ESPP`
-- `Ahorro fiscal = ingresos_libres_impuestos * tipo_marginal_estimado + ahorro_jub_empresa`
+- `Ahorro fiscal = ingresos_libres_impuestos * %IRPF aproximado + ahorro_jub_empresa`
 - `IRPF efectivo anual = irpf_importe_anual / total_devengado_anual`
                 """
             )

@@ -47,8 +47,17 @@ def _build_base(df: pd.DataFrame) -> pd.DataFrame:
     out["Año"] = pd.to_numeric(out["Año"], errors="coerce").astype("Int64")
     out["Mes"] = pd.to_numeric(out["Mes"], errors="coerce").astype("Int64")
     out["Importe"] = _as_float(out["Importe"])
+    out["Categoria_norm"] = out.get("Categoría", "").astype(str).map(_norm)
     out["Concepto_norm"] = out["Concepto"].astype(str).map(_norm)
     out["Subcat_norm"] = out["Subcategoría"].astype(str).map(_norm)
+    # Compatibilidad con históricos: algunos refund se guardaron con signo invertido.
+    # En deducciones, Tax/ESPP refund deben reducir deducciones (importe positivo final).
+    refund_mask = (
+        (out["Categoria_norm"] == "DEVENGO")
+        & (out["Importe"] < 0)
+        & out["Concepto_norm"].str.contains("TAX REFUND|ESPP REFUND", regex=True)
+    )
+    out.loc[refund_mask, "Importe"] = out.loc[refund_mask, "Importe"].abs()
     out = out.dropna(subset=["Año", "Mes"])
     out["Año"] = out["Año"].astype(int)
     out["Mes"] = out["Mes"].astype(int)
@@ -73,8 +82,20 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     rows = []
     for (year, month), g in df.groupby(["Año", "Mes"], sort=True):
-        total_devengado = g.loc[g["Importe"] > 0, "Importe"].sum()
-        total_deducir = -g.loc[g["Importe"] < 0, "Importe"].sum()
+        # Regla contable de nómina:
+        # - Retrib. Flexible se muestra en DEVENGOS con signo negativo y debe
+        #   restar del total devengado.
+        # - Tax Refund / ESPP Refund (o deducción) se tratan como deducciones.
+        is_retrib_flexible = g["Concepto_norm"].str.contains("RETRIB. FLEXIBLE", regex=False)
+        is_ingreso = (g["Categoria_norm"] == "INGRESO") | is_retrib_flexible
+        is_devengo = (g["Categoria_norm"] == "DEVENGO") & (~is_retrib_flexible)
+        if not is_ingreso.any() and not is_devengo.any():
+            # Fallback para históricos sin columna Categoría normalizada.
+            is_ingreso = g["Importe"] > 0
+            is_devengo = g["Importe"] < 0
+
+        total_devengado = g.loc[is_ingreso, "Importe"].sum()
+        total_deducir = -g.loc[is_devengo, "Importe"].sum()
         irpf_importe = -g.loc[g["Subcat_norm"] == "IMPUESTOS (IRPF)", "Importe"].sum()
         ss_importe = -g.loc[g["Subcat_norm"] == "SEGURIDAD SOCIAL", "Importe"].sum()
         fijo_ingreso = g.loc[g["Subcat_norm"] == "INGRESO FIJO", "Importe"].sum()
@@ -96,7 +117,7 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
             {
                 "Año": year,
                 "Mes": month,
-                "neto": g["Importe"].sum(),
+                "neto": total_devengado - total_deducir,
                 "total_devengado": total_devengado,
                 "total_deducir": total_deducir,
                 "irpf_importe": irpf_importe,

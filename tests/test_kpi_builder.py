@@ -58,3 +58,49 @@ def test_importe_spanish_decimal_parsing_regression() -> None:
     assert m["total_devengado"] == 1797.37
     assert m["total_deducir"] == 1779.24
     assert round(m["neto"], 2) == 18.13
+
+
+def test_negative_ingreso_reduces_devengado_not_deducciones() -> None:
+    df = pd.DataFrame(
+        [
+            {"Año": 2025, "Mes": 1, "Concepto": "SALARIO BASE", "Importe": 1000, "Categoría": "Ingreso", "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TAX REFUND", "Importe": -100, "Categoría": "Ingreso", "Subcategoría": "Impuestos (Ajustes)"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TRIBUTACION I.R.P.F.", "Importe": -200, "Categoría": "Devengo", "Subcategoría": "Impuestos (IRPF)"},
+        ]
+    )
+    monthly, _, _ = build_all_kpis(df)
+    m = monthly.iloc[0]
+    assert m["total_devengado"] == 900
+    assert m["total_deducir"] == 200
+    assert m["neto"] == 700
+
+
+def test_retrib_flexible_negative_goes_to_devengado() -> None:
+    df = pd.DataFrame(
+        [
+            {"Año": 2025, "Mes": 1, "Concepto": "SALARIO BASE", "Importe": 1000, "Categoría": "Ingreso", "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 1, "Concepto": "RETRIB. FLEXIBLE", "Importe": -100, "Categoría": "Devengo", "Subcategoría": "Beneficio en Especie"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TRIBUTACION I.R.P.F.", "Importe": -200, "Categoría": "Devengo", "Subcategoría": "Impuestos (IRPF)"},
+        ]
+    )
+    monthly, _, _ = build_all_kpis(df)
+    m = monthly.iloc[0]
+    assert m["total_devengado"] == 900
+    assert m["total_deducir"] == 200
+    assert m["neto"] == 700
+
+
+def test_refunds_in_deducciones_reduce_total_deducir() -> None:
+    df = pd.DataFrame(
+        [
+            {"Año": 2025, "Mes": 1, "Concepto": "SALARIO BASE", "Importe": 1000, "Categoría": "Ingreso", "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TRIBUTACION I.R.P.F.", "Importe": -300, "Categoría": "Devengo", "Subcategoría": "Impuestos (IRPF)"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TAX REFUND", "Importe": -50, "Categoría": "Devengo", "Subcategoría": "Impuestos (Ajustes)"},
+            {"Año": 2025, "Mes": 1, "Concepto": "ESPP REFUND", "Importe": -20, "Categoría": "Devengo", "Subcategoría": "Inversión Acciones (ESPP)"},
+        ]
+    )
+    monthly, _, _ = build_all_kpis(df)
+    m = monthly.iloc[0]
+    assert m["total_devengado"] == 1000
+    assert m["total_deducir"] == 230
+    assert m["neto"] == 770

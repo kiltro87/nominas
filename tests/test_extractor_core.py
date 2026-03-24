@@ -36,6 +36,14 @@ def test_classify_deduction_sign_and_subcategory() -> None:
     assert importe == -100.0
 
 
+def test_classify_negative_deduction_as_refund_positive() -> None:
+    rules = get_normalized_subcategory_rules()
+    categoria, subcategoria, importe = classify_entry("TAX REFUND", None, -100.0, rules)
+    assert categoria == "Devengo"
+    assert subcategoria == "Impuestos (Ajustes)"
+    assert importe == 100.0
+
+
 def test_classify_negative_devengo_as_devengo() -> None:
     rules = get_normalized_subcategory_rules()
     categoria, subcategoria, importe = classify_entry("RETRIB. FLEXIBLE", -10.0, None, rules)
