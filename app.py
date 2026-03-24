@@ -163,7 +163,10 @@ if not df_nominas.empty:
         annual_view = annual_view.sort_values(["Año"]).reset_index(drop=True)
         espp_view = espp_view.sort_values(["Año", "Mes"]).reset_index(drop=True)
 
-        st.subheader("KPIs mensuales (último mes)")
+        monthly_title = "KPIs mensuales"
+        if year_option == "Todos" and period_option == "Todos":
+            monthly_title += " (último mes disponible)"
+        st.subheader(monthly_title)
         m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Bruto mes", show_eur(float(m["total_devengado"])))
@@ -179,7 +182,10 @@ if not df_nominas.empty:
         c9.metric("Ingresos libres imp. mes", show_eur(float(m["ingresos_libres_impuestos"])))
         c10.metric("Tipo marginal estimado", f"{float(m['tipo_marginal_estimado']) * 100:.2f}%")
 
-        st.subheader("KPIs anuales (último año)")
+        annual_title = "KPIs anuales"
+        if year_option == "Todos":
+            annual_title += " (último año disponible)"
+        st.subheader(annual_title)
         y = annual_view.sort_values("Año").iloc[-1]
         a1, a2, a3, a4, a5 = st.columns(5)
         a1.metric("Bruto anual", show_eur(float(y["total_devengado"])))
@@ -195,7 +201,8 @@ if not df_nominas.empty:
         a9.metric("Ingresos libres imp. anual", show_eur(float(y["ingresos_libres_impuestos"])))
         a10.metric("Bruto variable anual", show_eur(float(y["variable_ingreso"])))
 
-        st.subheader("Jubilación, ESPP y RSU")
+        st.markdown("---")
+        st.subheader("Sección anual: Jubilación, ESPP y RSU")
         j1, j2, j3, j4, j5 = st.columns(5)
         j1.metric("Aport. empresa anual", show_eur(float(y["ahorro_jub_empresa"])))
         j2.metric("Aport. empleado anual", show_eur(float(y["ahorro_jub_empleado"])))
