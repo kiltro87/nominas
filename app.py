@@ -57,6 +57,7 @@ def draw_monthly_chart(df: pd.DataFrame, y_columns: list[str], title: str, perce
         .properties(title=title)
     )
     st.altair_chart(chart, use_container_width=True)
+
 def get_runtime_config() -> dict:
     # Prioridad 1: config local (desarrollo)
     cfg_path = Path("config.json")
@@ -163,6 +164,21 @@ if not df_nominas.empty:
         annual_view = annual_view.sort_values(["Año"]).reset_index(drop=True)
         espp_view = espp_view.sort_values(["Año", "Mes"]).reset_index(drop=True)
 
+        nominas_view = df_nominas.copy()
+        nominas_view["Año"] = pd.to_numeric(nominas_view["Año"], errors="coerce")
+        nominas_view["Mes"] = pd.to_numeric(nominas_view["Mes"], errors="coerce")
+        nominas_view = nominas_view.dropna(subset=["Año", "Mes"]).copy()
+        nominas_view["Año"] = nominas_view["Año"].astype(int)
+        nominas_view["Mes"] = nominas_view["Mes"].astype(int)
+        if year_option != "Todos":
+            nominas_view = nominas_view[nominas_view["Año"] == int(year_option)].copy()
+        if period_option != "Todos":
+            p_year, p_month = period_option.split("-")
+            nominas_view = nominas_view[
+                (nominas_view["Año"] == int(p_year)) & (nominas_view["Mes"] == int(p_month))
+            ].copy()
+        nominas_view = nominas_view.sort_values(["Año", "Mes", "Concepto"]).reset_index(drop=True)
+
         monthly_title = "KPIs mensuales"
         if year_option == "Todos" and period_option == "Todos":
             monthly_title += " (último mes disponible)"
@@ -217,19 +233,71 @@ if not df_nominas.empty:
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
-            annual_amount_chart = annual_view[["Año", "neto", "riqueza_real_anual"]].copy()
+            annual_amount_chart = annual_view[["Año", "total_devengado", "neto"]].copy()
+            annual_amount_chart["ingresos_recibidos"] = (
+                annual_view["neto"]
+                + annual_view["consumo_especie"]
+                + annual_view["ahorro_jub_total"]
+                + annual_view["espp_neto_estimado"]
+                + annual_view["rsu_neto_estimado"]
+            )
+            annual_amount_chart = annual_amount_chart.rename(
+                columns={
+                    "total_devengado": "Salario Bruto",
+                    "neto": "Salario Neto",
+                    "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                }
+            )
             if hide_amounts:
-                annual_amount_chart[["neto", "riqueza_real_anual"]] = 0.0
-            st.line_chart(annual_amount_chart.set_index("Año")[["neto", "riqueza_real_anual"]])
+                annual_amount_chart[
+                    [
+                        "Salario Bruto",
+                        "Salario Neto",
+                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                    ]
+                ] = 0.0
+            st.line_chart(
+                annual_amount_chart.set_index("Año")[
+                    [
+                        "Salario Bruto",
+                        "Salario Neto",
+                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                    ]
+                ]
+            )
             annual_pct_chart = annual_view[["Año", "pct_irpf_efectivo_anual", "pct_ss_efectivo_anual"]].copy()
             annual_pct_chart["% IRPF efectivo anual"] = annual_pct_chart["pct_irpf_efectivo_anual"] * 100
             annual_pct_chart["% Seguridad Social anual"] = annual_pct_chart["pct_ss_efectivo_anual"] * 100
             st.line_chart(annual_pct_chart.set_index("Año")[["% IRPF efectivo anual", "% Seguridad Social anual"]])
         else:
-            monthly_amount_chart = monthly_view[["Periodo_natural", "neto", "riqueza_real_mensual"]].copy()
+            monthly_amount_chart = monthly_view[["Periodo_natural", "total_devengado", "neto"]].copy()
+            monthly_amount_chart["ingresos_recibidos"] = (
+                monthly_view["neto"]
+                + monthly_view["consumo_especie"]
+                + monthly_view["ahorro_jub_total"]
+                + monthly_view["espp_neto_estimado"]
+                + monthly_view["rsu_neto_estimado"]
+            )
+            monthly_amount_chart = monthly_amount_chart.rename(
+                columns={
+                    "total_devengado": "Salario Bruto",
+                    "neto": "Salario Neto",
+                    "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                }
+            )
             if hide_amounts:
-                monthly_amount_chart[["neto", "riqueza_real_mensual"]] = 0.0
-            draw_monthly_chart(monthly_amount_chart, ["neto", "riqueza_real_mensual"], "Evolución mensual (importes)")
+                monthly_amount_chart[
+                    [
+                        "Salario Bruto",
+                        "Salario Neto",
+                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                    ]
+                ] = 0.0
+            draw_monthly_chart(
+                monthly_amount_chart,
+                ["Salario Bruto", "Salario Neto", "Ingresos recibidos (incluyendo Tickets, pensión y acciones)"],
+                "Evolución salarial e ingresos recibidos",
+            )
             draw_monthly_chart(monthly_view, ["pct_irpf", "pct_ss"], "Evolución mensual (% IRPF y % SS)", percent_scale=True)
         annual_table = annual_view[
             ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
@@ -345,12 +413,29 @@ if not df_nominas.empty:
                 width="stretch",
             )
 
+        with st.expander("Detalle mensual (líneas originales de nómina)"):
+            original_cols = [
+                "Año",
+                "Mes",
+                "Concepto",
+                "Importe",
+                "Categoría",
+                "Subcategoría",
+                "file_name",
+            ]
+            existing_cols = [c for c in original_cols if c in nominas_view.columns]
+            original_df = nominas_view[existing_cols].copy()
+            if "Importe" in original_df.columns and hide_amounts:
+                original_df["Importe"] = "••••••"
+            st.dataframe(original_df, width="stretch")
+
         with st.expander("Definiciones de métricas"):
             st.markdown(
                 """
 - `Riqueza real mensual = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
 - `% IRPF mensual = porcentaje informado en nómina (ej. 33,17%) si está disponible; si no, aproximación por ratio`
 - `Ahorro fiscal = ingresos_libres_impuestos * %IRPF aproximado + ahorro_jub_empresa`
+- `Ingresos recibidos = neto + consumo_especie + ahorro_jub_total + espp_neto_estimado + rsu_neto_estimado`
 - `IRPF efectivo anual = irpf_importe_anual / total_devengado_anual`
                 """
             )
