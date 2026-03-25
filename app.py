@@ -18,52 +18,82 @@ st.title("Análisis de Nóminas")
 st.markdown(
     """
 <style>
-/* Accent palette */
+/* Material 3 Expressive-inspired palette */
 :root {
-    --card-bg: #f7faff;
-    --card-border: #d8e3ff;
-    --metric-bg: #ffffff;
-    --metric-border: #dbe4ef;
-    --title: #0f172a;
-    --muted: #334155;
+    --m3-primary: #6750a4;
+    --m3-on-primary: #ffffff;
+    --m3-primary-container: #eaddff;
+    --m3-on-primary-container: #21005d;
+    --m3-secondary-container: #e8def8;
+    --m3-surface: #fffbfe;
+    --m3-surface-container: #f3edf7;
+    --m3-surface-container-high: #ece6f0;
+    --m3-outline: #cac4d0;
+    --m3-outline-variant: #e7e0ec;
+    --m3-on-surface: #1d1b20;
+    --m3-on-surface-variant: #49454f;
+    --m3-shadow: 0 3px 10px rgba(29, 27, 32, 0.10);
 }
 
-/* Section cards (robust selectors for Streamlit local/cloud) */
+/* Section cards */
 div[data-testid="stVerticalBlockBorderWrapper"],
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 2px 8px rgba(30, 41, 59, 0.06) !important;
+    background: var(--m3-surface-container) !important;
+    border: 1px solid var(--m3-outline-variant) !important;
+    border-radius: 18px !important;
+    box-shadow: var(--m3-shadow) !important;
 }
 
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    padding: 0.9rem 1rem !important;
+    padding: 1rem 1.05rem !important;
 }
 
-/* Metric cards inside sections */
+/* KPI metric cards: subtle, no nested hard borders */
 div[data-testid="stMetric"] {
-    background: var(--metric-bg) !important;
-    border: 1px solid var(--metric-border) !important;
-    border-radius: 10px !important;
-    padding: 0.45rem 0.55rem !important;
+    background: var(--m3-surface) !important;
+    border: 1px solid var(--m3-outline-variant) !important;
+    border-radius: 16px !important;
+    padding: 0.5rem 0.65rem !important;
 }
 div[data-testid="stMetricLabel"] p {
-    color: var(--muted) !important;
+    color: var(--m3-on-surface-variant) !important;
     font-weight: 600 !important;
+    letter-spacing: 0.01em !important;
 }
 div[data-testid="stMetricValue"] {
-    color: var(--title) !important;
+    color: var(--m3-on-surface) !important;
 }
 
-/* Headings accent */
+/* Headings and section emphasis */
 h3, h4, h5 {
-    color: #1e3a8a !important;
+    color: var(--m3-on-primary-container) !important;
 }
 
 /* Better spacing between column blocks */
 div[data-testid="stHorizontalBlock"] {
-    gap: 0.8rem !important;
+    gap: 0.85rem !important;
+}
+
+/* Selectbox/input accents */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] > div {
+    border-radius: 14px !important;
+    border: 1px solid var(--m3-outline) !important;
+    background: var(--m3-surface) !important;
+}
+
+/* Expander styling */
+details {
+    background: var(--m3-surface) !important;
+    border: 1px solid var(--m3-outline-variant) !important;
+    border-radius: 14px !important;
+    padding: 0.2rem 0.4rem !important;
+}
+
+/* Table header tint */
+div[data-testid="stDataFrame"] thead tr th {
+    background: var(--m3-secondary-container) !important;
+    color: var(--m3-on-primary-container) !important;
 }
 
 /* Responsive layout: allow columns to wrap */
