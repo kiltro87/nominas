@@ -20,6 +20,34 @@ st.caption("Dashboard de nóminas alimentado automáticamente desde Drive -> Goo
 hide_amounts = st.toggle("Modo privacidad: ocultar importes", value=False)
 compact_mode = st.toggle("Modo compacto", value=False)
 
+METRIC_HELP: dict[str, str] = {
+    "Bruto mes": "Suma de devengos netos del mes.",
+    "% IRPF mes": "Porcentaje de IRPF informado en nómina (si existe) o ratio IRPF/Bruto del mes.",
+    "Neto mes": "Bruto del mes menos total a deducir del mes.",
+    "Consumo en especie": "Consumo asociado a conceptos en especie (tickets, seguros, fitness, etc.).",
+    "Riqueza real mensual": "Neto + aportación empresa a jubilación + netos estimados de RSU y ESPP.",
+    "Ahorro fiscal mes": "Ingresos libres de impuestos multiplicados por tipo marginal estimado + aportación empresa a jubilación.",
+    "Ahorro jub. empresa mes": "Aportación de empresa al plan de pensiones en el mes.",
+    "Ahorro jub. empleado mes": "Aportación del empleado al plan de pensiones en el mes.",
+    "Ingresos libres imp. mes": "Importes del mes marcados como exentos o no sujetos a IRPF.",
+    "Bruto anual": "Suma anual de devengos netos.",
+    "% IRPF efectivo anual": "IRPF anual / Bruto anual.",
+    "Neto anual": "Bruto anual menos total anual a deducir.",
+    "ESPP Gain anual": "Ganancia bruta anual identificada como ESPP.",
+    "Riqueza real anual": "Suma anual de riqueza real mensual.",
+    "Ahorro jubilación anual": "Aportación anual total (empresa + empleado) a jubilación.",
+    "Ahorro fiscal anual": "Suma anual del ahorro fiscal estimado.",
+    "Consumo en especie anual": "Suma anual del consumo en especie.",
+    "Ingresos libres imp. anual": "Suma anual de ingresos libres de impuestos.",
+    "Bruto variable anual": "Suma anual de ingresos variables brutos.",
+    "Aportación empresa": "Aportación anual de la empresa al plan de pensiones.",
+    "Aportación empleado": "Aportación anual del empleado al plan de pensiones.",
+    "ESPP bruto": "Ganancia bruta anual de ESPP.",
+    "ESPP neto estimado": "ESPP bruto ajustado por tipo marginal estimado.",
+    "RSU bruto": "Ganancia bruta anual de RSU/stock options.",
+    "RSU neto estimado": "RSU bruto ajustado por tipo marginal estimado.",
+}
+
 
 def show_eur(value: float) -> str:
     return "••••••" if hide_amounts else format_eur(float(value))
@@ -58,6 +86,21 @@ def draw_monthly_chart(df: pd.DataFrame, y_columns: list[str], title: str, perce
         .properties(title=title)
     )
     st.altair_chart(chart, use_container_width=True)
+
+
+def metric_with_help(container: Any, label: str, value: str, delta: str | None = None) -> None:
+    help_text = METRIC_HELP.get(label)
+    try:
+        if delta is None:
+            container.metric(label, value, help=help_text)
+        else:
+            container.metric(label, value, delta=delta, help=help_text)
+    except TypeError:
+        if delta is None:
+            container.metric(label, value)
+        else:
+            container.metric(label, value, delta=delta)
+
 
 def get_runtime_config() -> dict:
     # Prioridad 1: config local (desarrollo)
@@ -239,21 +282,21 @@ if not df_nominas.empty:
             st.caption(delta_label)
         c1, c2, c3, c4, c5 = st.columns(5)
         if cmp_row is not None:
-            c1.metric("Bruto mes", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
-            c2.metric("% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
-            c3.metric("Neto mes", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
+            metric_with_help(c1, "Bruto mes", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
+            metric_with_help(c2, "% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
+            metric_with_help(c3, "Neto mes", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
         else:
-            c1.metric("Bruto mes", show_eur(float(m["total_devengado"])))
-            c2.metric("% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%")
-            c3.metric("Neto mes", show_eur(float(m["neto"])))
-        c4.metric("Consumo en especie", show_eur(float(m["consumo_especie"])))
-        c5.metric("Riqueza real mensual", show_eur(float(m["riqueza_real_mensual"])))
+            metric_with_help(c1, "Bruto mes", show_eur(float(m["total_devengado"])))
+            metric_with_help(c2, "% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%")
+            metric_with_help(c3, "Neto mes", show_eur(float(m["neto"])))
+        metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
+        metric_with_help(c5, "Riqueza real mensual", show_eur(float(m["riqueza_real_mensual"])))
 
         c6, c7, c8, c9 = st.columns(4)
-        c6.metric("Ahorro fiscal mes", show_eur(float(m["ahorro_fiscal"])))
-        c7.metric("Ahorro jub. empresa mes", show_eur(float(m["ahorro_jub_empresa"])))
-        c8.metric("Ahorro jub. empleado mes", show_eur(float(m["ahorro_jub_empleado"])))
-        c9.metric("Ingresos libres imp. mes", show_eur(float(m["ingresos_libres_impuestos"])))
+        metric_with_help(c6, "Ahorro fiscal mes", show_eur(float(m["ahorro_fiscal"])))
+        metric_with_help(c7, "Ahorro jub. empresa mes", show_eur(float(m["ahorro_jub_empresa"])))
+        metric_with_help(c8, "Ahorro jub. empleado mes", show_eur(float(m["ahorro_jub_empleado"])))
+        metric_with_help(c9, "Ingresos libres imp. mes", show_eur(float(m["ingresos_libres_impuestos"])))
 
         if cmp_row is not None:
             with st.expander("Explicar delta (Top 5 conceptos)"):
@@ -298,33 +341,33 @@ if not df_nominas.empty:
         st.subheader(annual_title)
         y = annual_view.sort_values("Año").iloc[-1]
         a1, a2, a3, a4, a5 = st.columns(5)
-        a1.metric("Bruto anual", show_eur(float(y["total_devengado"])))
-        a2.metric("% IRPF efectivo anual", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
-        a3.metric("Neto anual", show_eur(float(y["neto"])))
-        a4.metric("ESPP Gain anual", show_eur(float(y["espp_gain"])))
-        a5.metric("Riqueza real anual", show_eur(float(y["riqueza_real_anual"])))
+        metric_with_help(a1, "Bruto anual", show_eur(float(y["total_devengado"])))
+        metric_with_help(a2, "% IRPF efectivo anual", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
+        metric_with_help(a3, "Neto anual", show_eur(float(y["neto"])))
+        metric_with_help(a4, "ESPP Gain anual", show_eur(float(y["espp_gain"])))
+        metric_with_help(a5, "Riqueza real anual", show_eur(float(y["riqueza_real_anual"])))
 
         a6, a7, a8, a9, a10 = st.columns(5)
-        a6.metric("Ahorro jubilación anual", show_eur(float(y["ahorro_jub_total"])))
-        a7.metric("Ahorro fiscal anual", show_eur(float(y["ahorro_fiscal"])))
-        a8.metric("Consumo en especie anual", show_eur(float(y["consumo_especie"])))
-        a9.metric("Ingresos libres imp. anual", show_eur(float(y["ingresos_libres_impuestos"])))
-        a10.metric("Bruto variable anual", show_eur(float(y["variable_ingreso"])))
+        metric_with_help(a6, "Ahorro jubilación anual", show_eur(float(y["ahorro_jub_total"])))
+        metric_with_help(a7, "Ahorro fiscal anual", show_eur(float(y["ahorro_fiscal"])))
+        metric_with_help(a8, "Consumo en especie anual", show_eur(float(y["consumo_especie"])))
+        metric_with_help(a9, "Ingresos libres imp. anual", show_eur(float(y["ingresos_libres_impuestos"])))
+        metric_with_help(a10, "Bruto variable anual", show_eur(float(y["variable_ingreso"])))
 
         st.markdown("##### Jubilación, ESPP y RSU")
         grp1, grp2, grp3 = st.columns(3)
         with grp1:
             st.caption("Jubilación")
-            st.metric("Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
-            st.metric("Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
+            metric_with_help(st, "Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
+            metric_with_help(st, "Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
         with grp2:
             st.caption("ESPP")
-            st.metric("ESPP bruto", show_eur(float(y["espp_gain"])))
-            st.metric("ESPP neto estimado", show_eur(float(y["espp_neto_estimado"])))
+            metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
+            metric_with_help(st, "ESPP neto estimado", show_eur(float(y["espp_neto_estimado"])))
         with grp3:
             st.caption("RSU")
-            st.metric("RSU bruto", show_eur(float(y["rsu_gain"])))
-            st.metric("RSU neto estimado", show_eur(float(y["rsu_neto_estimado"])))
+            metric_with_help(st, "RSU bruto", show_eur(float(y["rsu_gain"])))
+            metric_with_help(st, "RSU neto estimado", show_eur(float(y["rsu_neto_estimado"])))
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
@@ -679,18 +722,6 @@ if not df_nominas.empty:
                     .reset_index()
                 )
                 st.dataframe(coverage_pivot, width="stretch")
-
-        with st.expander("Información contextual de campos"):
-            context_rows = [
-                {"Campo": "Bruto mes/anual", "Qué representa": "Suma de devengos netos del periodo.", "Fuente": "Nominas -> Categoría/Importe"},
-                {"Campo": "Neto mes/anual", "Qué representa": "Bruto menos total a deducir.", "Fuente": "KPIs mensuales/agregación anual"},
-                {"Campo": "% IRPF mes", "Qué representa": "% de nómina informado (si existe) o ratio IRPF/Bruto.", "Fuente": "Concepto IRPF + cálculo"},
-                {"Campo": "% IRPF efectivo anual", "Qué representa": "IRPF anual / Bruto anual.", "Fuente": "Agregación anual"},
-                {"Campo": "Ingresos recibidos", "Qué representa": "Neto + especie + jubilación + netos estimados de ESPP/RSU.", "Fuente": "KPI compuesto"},
-                {"Campo": "ESPP/RSU bruto", "Qué representa": "Ganancia bruta en nómina para esos conceptos.", "Fuente": "Subcategorías Ingreso Variable"},
-                {"Campo": "ESPP/RSU neto estimado", "Qué representa": "Bruto ajustado por tipo marginal estimado interno.", "Fuente": "KPI derivado"},
-            ]
-            st.dataframe(pd.DataFrame(context_rows), width="stretch")
 
         with st.expander("Definiciones de métricas"):
             st.markdown(
