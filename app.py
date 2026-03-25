@@ -20,29 +20,35 @@ st.markdown(
 <style>
 /* Accent palette */
 :root {
-    --card-bg: #f7faff;
-    --card-border: #d8e3ff;
+    --card-bg: #f4f8ff;
+    --card-border: #cfdcff;
     --metric-bg: #ffffff;
-    --metric-border: #dbe4ef;
+    --metric-border: #d6e0ee;
     --title: #0f172a;
     --muted: #334155;
+    --accent: #1d4ed8;
+    --accent-soft: #eaf1ff;
 }
 
 /* Section cards (robust selectors for Streamlit local/cloud) */
 div[data-testid="stVerticalBlockBorderWrapper"],
-div[data-testid="stVerticalBlockBorderWrapper"] > div {
+div[data-testid="stVerticalBlockBorderWrapper"] > div,
+div[data-testid="stVerticalBlockBorderWrapper"] > div > div {
     background: var(--card-bg) !important;
     border: 1px solid var(--card-border) !important;
     border-radius: 14px !important;
-    box-shadow: 0 2px 8px rgba(30, 41, 59, 0.06) !important;
+    box-shadow: 0 3px 10px rgba(30, 41, 59, 0.08) !important;
 }
 
-div[data-testid="stVerticalBlockBorderWrapper"] > div {
+div[data-testid="stVerticalBlockBorderWrapper"] > div,
+div[data-testid="stVerticalBlockBorderWrapper"] > div > div {
     padding: 0.9rem 1rem !important;
 }
 
 /* Metric cards inside sections */
-div[data-testid="stMetric"] {
+div[data-testid="stMetric"],
+div[data-testid="stMetric"] > div,
+div[data-testid="stMetric"] > div > div {
     background: var(--metric-bg) !important;
     border: 1px solid var(--metric-border) !important;
     border-radius: 10px !important;
@@ -56,8 +62,27 @@ div[data-testid="stMetricValue"] {
     color: var(--title) !important;
 }
 
+/* Expanders and inline containers */
+details {
+    background: #f8fbff !important;
+    border: 1px solid #dbe7ff !important;
+    border-radius: 10px !important;
+    padding: 0.2rem 0.5rem !important;
+}
+
 /* Headings accent */
 h3, h4, h5 {
+    color: var(--accent) !important;
+}
+
+/* Keep labels/icons in accent family */
+h3 + div p, h4 + div p, h5 + div p {
+    color: #1f2937 !important;
+}
+
+/* Table header tint */
+div[data-testid="stDataFrame"] thead tr th {
+    background: var(--accent-soft) !important;
     color: #1e3a8a !important;
 }
 
