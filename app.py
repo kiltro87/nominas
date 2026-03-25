@@ -130,9 +130,11 @@ def show_compact_eur(value: float) -> str:
 
 
 def zebra_styler(df: pd.DataFrame) -> pd.io.formats.style.Styler:
-    bg = pd.DataFrame("", index=df.index, columns=df.columns)
+    display_df = df.copy()
+    display_df.index = pd.RangeIndex(start=1, stop=len(display_df) + 1, step=1)
+    bg = pd.DataFrame("", index=display_df.index, columns=display_df.columns)
     bg.iloc[1::2, :] = "background-color: #f7f7f7"
-    return df.style.apply(lambda _: bg, axis=None)
+    return display_df.style.apply(lambda _: bg, axis=None)
 
 
 def apply_privacy_to_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
@@ -503,8 +505,25 @@ if not df_nominas.empty:
                             "Prueba con otro año o selecciona 'Todos' en mes."
                         )
                     else:
-                        gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
-                        st.dataframe(zebra_styler(gains_table), width="stretch")
+                        with st.expander("Ver detalle mensual ESPP/RSU", expanded=False):
+                            max_rows = min(12, len(gains_table))
+                            rows_to_show = st.slider(
+                                "Meses a mostrar",
+                                min_value=1,
+                                max_value=max_rows,
+                                value=min(6, max_rows),
+                                key="espp_rsu_rows_to_show",
+                            )
+                            gains_recent = gains_table.tail(int(rows_to_show)).copy()
+                            gains_recent = apply_privacy_to_columns(gains_recent, ["ESPP Gain", "RSU Gain"])
+                            st.dataframe(zebra_styler(gains_recent), width="stretch")
+                            csv_payload = gains_table.to_csv(index=False).encode("utf-8")
+                            st.download_button(
+                                "Descargar ESPP/RSU mensual (CSV)",
+                                data=csv_payload,
+                                file_name="espp_rsu_mensual.csv",
+                                mime="text/csv",
+                            )
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
