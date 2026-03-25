@@ -130,3 +130,19 @@ def test_missing_categoria_column_falls_back_to_sign_logic() -> None:
     assert m["total_devengado"] == 1000
     assert m["total_deducir"] == 300
     assert m["neto"] == 700
+
+
+def test_annual_effective_irpf_ratio_matches_amounts() -> None:
+    df = pd.DataFrame(
+        [
+            {"Año": 2025, "Mes": 1, "Concepto": "SALARIO BASE", "Importe": 1000, "Categoría": "Ingreso", "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 1, "Concepto": "TRIBUTACION I.R.P.F.", "Importe": -250, "Categoría": "Devengo", "Subcategoría": "Impuestos (IRPF)"},
+            {"Año": 2025, "Mes": 2, "Concepto": "SALARIO BASE", "Importe": 1000, "Categoría": "Ingreso", "Subcategoría": "Ingreso Fijo"},
+            {"Año": 2025, "Mes": 2, "Concepto": "TRIBUTACION I.R.P.F.", "Importe": -250, "Categoría": "Devengo", "Subcategoría": "Impuestos (IRPF)"},
+        ]
+    )
+    _, annual, _ = build_all_kpis(df)
+    a = annual.iloc[0]
+    assert a["irpf_importe"] == 500
+    assert a["total_devengado"] == 2000
+    assert round(float(a["pct_irpf_efectivo_anual"]), 4) == 0.25

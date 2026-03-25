@@ -46,7 +46,7 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div {
 }
 
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    padding: 1rem 1.05rem !important;
+    padding: 0.85rem 0.95rem !important;
 }
 
 /* KPI metric cards: subtle, no nested hard borders */
@@ -72,7 +72,7 @@ h3, h4, h5 {
 }
 
 /* Better spacing between column blocks */
-div[data-testid="stHorizontalBlock"] { gap: 0.8rem !important; }
+div[data-testid="stHorizontalBlock"] { gap: 0.7rem !important; }
 
 /* Selectbox/input accents */
 div[data-baseweb="select"] > div,
@@ -97,14 +97,24 @@ details {
 
 /* Table header tint */
 div[data-testid="stDataFrame"] thead tr th {
-    background: #dbeafe !important;
+    background: #bfdbfe !important;
     color: #1e3a8a !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
 }
 
 /* Hide Streamlit heading anchor link shown on hover */
 a[href^="#"] {
     display: none !important;
+}
+
+/* Keep sibling cards visually aligned in desktop layouts */
+@media (min-width: 1201px) {
+    div[data-testid="column"] > div[data-testid="stVerticalBlockBorderWrapper"] {
+        height: 100% !important;
+    }
+    div[data-testid="column"] > div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        height: 100% !important;
+    }
 }
 
 /* Responsive layout: allow columns to wrap */

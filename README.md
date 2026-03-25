@@ -12,6 +12,10 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 
 ## 1) Instalación
 
+Requisitos recomendados:
+
+- Python 3.11 (también válido 3.10+)
+
 ```bash
 python3 -m pip install -r requirements.txt
 ```
@@ -81,10 +85,11 @@ streamlit run app.py
 
 El dashboard muestra:
 
-- KPIs mensuales: neto, % IRPF, ahorro fiscal, consumo en especie, riqueza real mensual
-- KPIs anuales: neto anual, % IRPF efectivo, ahorro jubilación anual, ESPP anual, riqueza real anual
+- KPIs mensuales: bruto, neto, % IRPF, ahorro fiscal, consumo en especie, ingresos totales
+- KPIs anuales: bruto, neto, % IRPF efectivo, IRPF medio, ahorro fiscal, ingresos totales, deltas YoY
+- Bloque anual de Jubilación y bloque anual de ESPP/RSU (con detalle mensual en expander)
 - Evolución y comparativa YoY
-- ESPP Gain por mes
+- Desglose mensual pivotado (Concepto/Subcategoría vs meses)
 - Definiciones de fórmulas clave
 
 Filtros disponibles en la app:
@@ -147,7 +152,7 @@ Puedes pasar `limit` en ejecución manual para pruebas.
 Ejecutar tests unitarios:
 
 ```bash
-pytest -q
+python3 -m pytest -q
 ```
 
 Cobertura actual de tests:
@@ -155,3 +160,4 @@ Cobertura actual de tests:
 - parser de período y normalización monetaria
 - clasificación de conceptos y signo de deducciones
 - cálculo de KPIs mensuales/anuales y comparativa YoY (a partir de `Nominas`)
+- deduplicación y corte incremental por `modifiedTime` en ingesta Drive
