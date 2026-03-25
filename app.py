@@ -11,139 +11,12 @@ import streamlit as st
 
 from kpi_builder import build_all_kpis, format_eur
 from sheets_client import SheetsClient
+from ui_style import apply_app_styles
 
 
 st.set_page_config(page_title="Análisis de Nóminas", layout="wide")
 st.title("Análisis de Nóminas")
-st.markdown(
-    """
-<style>
-/* Material 3 Expressive-inspired palette */
-:root {
-    --m3-primary: #3b82f6;
-    --m3-on-primary: #ffffff;
-    --m3-primary-container: #eaf2ff;
-    --m3-on-primary-container: #0f2a52;
-    --m3-secondary-container: #eef2f7;
-    --m3-surface: #fcfcfd;
-    --m3-surface-container: #f5f7fa;
-    --m3-surface-container-high: #edf1f5;
-    --m3-outline: #cfd8e3;
-    --m3-outline-variant: #e4e9f0;
-    --m3-on-surface: #111827;
-    --m3-on-surface-variant: #4b5563;
-    --m3-shadow: 0 1px 4px rgba(17, 24, 39, 0.06);
-}
-
-/* Section cards */
-div[data-testid="stVerticalBlockBorderWrapper"],
-div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    background: var(--m3-surface-container) !important;
-    border: 1px solid var(--m3-outline-variant) !important;
-    border-left: 2px solid #bfdbfe !important;
-    border-radius: 14px !important;
-    box-shadow: var(--m3-shadow) !important;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    padding: 0.85rem 0.95rem !important;
-}
-
-/* KPI metric cards: subtle, no nested hard borders */
-div[data-testid="stMetric"] {
-    background: var(--m3-surface) !important;
-    border: 1px solid var(--m3-outline-variant) !important;
-    border-radius: 16px !important;
-    padding: 0.5rem 0.65rem !important;
-}
-div[data-testid="stMetricLabel"] p {
-    color: var(--m3-on-surface-variant) !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.01em !important;
-}
-div[data-testid="stMetricValue"] {
-    color: var(--m3-on-surface) !important;
-}
-
-/* Headings and section emphasis */
-h3, h4, h5 {
-    color: var(--m3-on-primary-container) !important;
-    font-weight: 700 !important;
-}
-
-/* Better spacing between column blocks */
-div[data-testid="stHorizontalBlock"] { gap: 0.7rem !important; }
-
-/* Selectbox/input accents */
-div[data-baseweb="select"] > div,
-div[data-baseweb="input"] > div {
-    border-radius: 14px !important;
-    border: 1px solid #bfdbfe !important;
-    background: var(--m3-surface) !important;
-}
-div[data-baseweb="select"] > div:focus-within,
-div[data-baseweb="input"] > div:focus-within {
-    border-color: var(--m3-primary) !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.20) !important;
-}
-
-/* Expander styling */
-details {
-    background: #f9fbff !important;
-    border: 1px solid #e5edfb !important;
-    border-radius: 12px !important;
-    padding: 0.2rem 0.4rem !important;
-}
-
-/* Table header tint */
-div[data-testid="stDataFrame"] thead tr th {
-    background: #bfdbfe !important;
-    color: #1e3a8a !important;
-    font-weight: 700 !important;
-}
-
-/* Hide Streamlit heading anchor link shown on hover */
-a[href^="#"] {
-    display: none !important;
-}
-
-/* Keep sibling cards visually aligned in desktop layouts */
-@media (min-width: 1201px) {
-    div[data-testid="column"] > div[data-testid="stVerticalBlockBorderWrapper"] {
-        height: 100% !important;
-    }
-    div[data-testid="column"] > div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        height: 100% !important;
-    }
-}
-
-/* Responsive layout: allow columns to wrap */
-@media (max-width: 1200px) {
-    div[data-testid="stHorizontalBlock"] {
-        flex-wrap: wrap !important;
-    }
-    div[data-testid="column"] {
-        flex: 1 1 280px !important;
-        min-width: 280px !important;
-    }
-}
-
-@media (max-width: 760px) {
-    div[data-testid="column"] {
-        min-width: 100% !important;
-        flex-basis: 100% !important;
-    }
-    div[data-testid="stMetric"] label p {
-        font-size: 0.82rem !important;
-    }
-    div[data-testid="stMetricValue"] {
-        font-size: 1.4rem !important;
-    }
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+apply_app_styles()
 
 hide_amounts = st.toggle(
     "Modo privacidad",
@@ -200,6 +73,13 @@ def show_compact_eur(value: float) -> str:
     if av < 1_000_000:
         return f"{sign}{str(f'{av / 1000:.1f}').replace('.', ',')}k €"
     return f"{sign}{str(f'{av / 1_000_000:.1f}').replace('.', ',')}M €"
+
+
+def parse_spanish_amount_series(series: pd.Series) -> pd.Series:
+    return pd.to_numeric(
+        series.astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+        errors="coerce",
+    ).fillna(0.0)
 
 
 def zebra_styler(df: pd.DataFrame) -> pd.io.formats.style.Styler:
@@ -273,6 +153,525 @@ def metric_with_help(container: Any, label: str, value: str, delta: str | None =
             container.metric(label, value)
         else:
             container.metric(label, value, delta=delta)
+
+
+def render_monthly_kpis_card(
+    monthly_view: pd.DataFrame,
+    monthly: pd.DataFrame,
+    year_option: int | str,
+    period_option: str,
+    compare_mode: str,
+    raw_nominas: pd.DataFrame,
+) -> None:
+    m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
+    monthly_all = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
+    cur_year, cur_month = int(m["Año"]), int(m["Mes"])
+    cmp_row = None
+    if compare_mode == "Mes anterior":
+        prev = monthly_all[(monthly_all["Año"] < cur_year) | ((monthly_all["Año"] == cur_year) & (monthly_all["Mes"] < cur_month))]
+        if not prev.empty:
+            cmp_row = prev.iloc[-1]
+    elif compare_mode == "Mismo mes año anterior":
+        prev = monthly_all[(monthly_all["Año"] == cur_year - 1) & (monthly_all["Mes"] == cur_month)]
+        if not prev.empty:
+            cmp_row = prev.iloc[-1]
+
+    delta_label = f"vs {cmp_row['Periodo_natural']}" if cmp_row is not None else None
+    monthly_title = "KPIs mensuales"
+    if year_option == "Todos" and period_option == "Todos":
+        monthly_title += " (último mes disponible)"
+
+    compare_chip = ""
+    if compare_mode != "Sin comparación":
+        compare_chip_text = (
+            delta_label
+            if delta_label is not None
+            else ("vs mes anterior" if compare_mode == "Mes anterior" else "vs mismo mes año anterior")
+        )
+        compare_chip = (
+            f"<span style='margin-left:8px;padding:2px 8px;border-radius:999px;"
+            f"background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3;'>{compare_chip_text}</span>"
+        )
+
+    with st.container(border=True):
+        st.markdown(f"### {monthly_title}{compare_chip}", unsafe_allow_html=True)
+        c1, c2, c3, c4, c5 = st.columns(5)
+        if cmp_row is not None:
+            metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
+            metric_with_help(c2, "Neto", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
+            metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
+        else:
+            metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])))
+            metric_with_help(c2, "Neto", show_eur(float(m["neto"])))
+            metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
+        metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
+        metric_with_help(c5, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"])))
+
+        ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
+        c6, c7, c8, c9, c10 = st.columns(5)
+        metric_with_help(c6, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"])))
+        metric_with_help(c7, "Ahorro jubilación", show_eur(ahorro_jub_mensual))
+        metric_with_help(c8, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"])))
+        metric_with_help(c9, "Ahorro jub. empresa", show_eur(float(m["ahorro_jub_empresa"])))
+        metric_with_help(c10, "Ahorro jub. empleado", show_eur(float(m["ahorro_jub_empleado"])))
+
+        if cmp_row is not None:
+            with st.expander("Explicar delta (Top 5 conceptos)"):
+                raw_comp = raw_nominas.copy()
+                raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
+                raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
+                raw_comp["Importe_num"] = parse_spanish_amount_series(raw_comp["Importe"])
+                cur_rows = raw_comp[(raw_comp["Año"] == cur_year) & (raw_comp["Mes"] == cur_month)].copy()
+                prev_rows = raw_comp[
+                    (raw_comp["Año"] == int(cmp_row["Año"])) & (raw_comp["Mes"] == int(cmp_row["Mes"]))
+                ].copy()
+                for frame in (cur_rows, prev_rows):
+                    frame["Concepto_agrupado"] = frame["Concepto"].astype(str)
+                    irpf_mask = frame["Concepto_agrupado"].str.upper().str.contains(
+                        r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True
+                    )
+                    frame.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
+                cur_agg = cur_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
+                    columns={"Importe_num": "Actual"}
+                )
+                prev_agg = prev_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
+                    columns={"Importe_num": "Comparado"}
+                )
+                explain = cur_agg.merge(prev_agg, on="Concepto_agrupado", how="outer").fillna(0.0)
+                explain["Delta"] = explain["Actual"] - explain["Comparado"]
+                explain = explain.sort_values("Delta", ascending=False, key=lambda s: s.abs()).head(5)
+                explain = explain.rename(columns={"Concepto_agrupado": "Concepto"})
+                if hide_amounts:
+                    for col in ["Actual", "Comparado", "Delta"]:
+                        explain[col] = "••••••"
+                else:
+                    for col in ["Actual", "Comparado", "Delta"]:
+                        explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
+                st.dataframe(zebra_styler(explain), width="stretch")
+
+
+def render_annual_kpis_card(
+    annual_view: pd.DataFrame,
+    monthly: pd.DataFrame,
+    monthly_view: pd.DataFrame,
+    year_option: int | str,
+) -> None:
+    with st.container(border=True):
+        annual_title = "KPIs anuales"
+        if year_option == "Todos":
+            annual_title += " (último año disponible)"
+        st.subheader(annual_title)
+        y = annual_view.sort_values("Año").iloc[-1]
+        irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
+        a1, a2, a3, a4, a5 = st.columns(5)
+        metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"])))
+        metric_with_help(a2, "Neto", show_eur(float(y["neto"])))
+        metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
+        metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
+        metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"])))
+
+        b1, b2, b3, b4, b5 = st.columns(5)
+        metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
+        metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
+        metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
+        b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
+        b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
+
+        block_left, block_right = st.columns([3, 2])
+        with block_left:
+            with st.container(border=True):
+                st.markdown("##### Jubilación")
+                jub_total = float(y["ahorro_jub_total"])
+                jub_empresa = float(y["ahorro_jub_empresa"])
+                jub_empleado = float(y["ahorro_jub_empleado"])
+                j1, j2, j3 = st.columns(3)
+                metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
+                metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
+                metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
+        with block_right:
+            with st.container(border=True):
+                st.markdown("##### ESPP y RSU")
+                rm1, rm2 = st.columns(2)
+                metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
+                metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
+                gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
+                    columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain", "rsu_gain": "RSU Gain"}
+                )
+                gains_table = gains_table[
+                    (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
+                    | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
+                ].reset_index(drop=True)
+                if gains_table.empty:
+                    st.info(
+                        "Sin datos de ESPP/RSU para el filtro actual. "
+                        "Prueba con otro año o selecciona 'Todos' en mes."
+                    )
+                else:
+                    with st.expander("Ver detalle mensual ESPP/RSU", expanded=False):
+                        gains_recent = gains_table.copy()
+                        gains_recent = apply_privacy_to_columns(gains_recent, ["ESPP Gain", "RSU Gain"])
+                        st.dataframe(zebra_styler(gains_recent), width="stretch")
+                        csv_payload = gains_table.to_csv(index=False).encode("utf-8")
+                        st.download_button(
+                            "Descargar ESPP/RSU mensual (CSV)",
+                            data=csv_payload,
+                            file_name="espp_rsu_mensual.csv",
+                            mime="text/csv",
+                        )
+
+
+def render_breakdown(
+    nominas_view: pd.DataFrame,
+    monthly_view: pd.DataFrame,
+    period_option: str,
+) -> None:
+    with st.expander("Desglose mensual"):
+        breakdown = nominas_view.copy()
+        breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
+        irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
+        breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
+        ctrl1, ctrl2, ctrl3, ctrl4, ctrl5, ctrl6 = st.columns(6)
+        with ctrl1:
+            grouping_mode = st.selectbox(
+                "Agrupar por",
+                options=["Concepto", "Subcategoría"],
+                index=0,
+                key="breakdown_grouping_mode",
+            )
+        with ctrl2:
+            concept_filter = st.text_input(
+                "Buscar texto",
+                value="",
+                key="breakdown_text_filter",
+                placeholder="Ej. IRPF, ESPP, SALARIO...",
+            ).strip()
+        with ctrl3:
+            only_changes = st.checkbox("Solo con cambios (Δ abs != 0)", value=False, key="breakdown_only_changes")
+        with ctrl4:
+            hide_zero_rows = st.checkbox("Ocultar filas en cero", value=True, key="breakdown_hide_zeros")
+        with ctrl5:
+            top_n = st.number_input("Top filas", min_value=10, max_value=5000, value=200, step=10, key="breakdown_top_n")
+        with ctrl6:
+            expand_amounts = st.checkbox("Expandir importes", value=False, key="breakdown_expand_amounts")
+        breakdown["Importe_num"] = parse_spanish_amount_series(breakdown["Importe"])
+        breakdown["Periodo"] = (
+            breakdown["Año"].astype(int).astype(str) + "-" + breakdown["Mes"].astype(int).astype(str).str.zfill(2)
+        )
+        if grouping_mode == "Subcategoría":
+            breakdown["Clave_desglose"] = breakdown["Subcategoría"].astype(str)
+            index_col_name = "Subcategoría"
+        else:
+            breakdown["Clave_desglose"] = breakdown["Concepto_agrupado"]
+            index_col_name = "Concepto"
+
+        if period_option == "Todos":
+            month_order = monthly_view["Periodo"].drop_duplicates().tolist()
+        else:
+            month_order = [period_option]
+
+        pivot = (
+            breakdown.pivot_table(
+                index="Clave_desglose",
+                columns="Periodo",
+                values="Importe_num",
+                aggfunc="sum",
+                fill_value=0.0,
+            )
+            .reindex(columns=month_order, fill_value=0.0)
+            .reset_index()
+        )
+        pivot = pivot.rename(columns={"Clave_desglose": index_col_name})
+
+        if period_option == "Todos" and len(month_order) >= 2:
+            latest = month_order[-1]
+            prev = month_order[-2]
+            pivot["Δ abs"] = pivot[latest] - pivot[prev]
+            pivot["Δ %"] = pivot.apply(
+                lambda r: ((r[latest] - r[prev]) / r[prev] * 100.0) if float(r[prev]) != 0 else 0.0, axis=1
+            )
+            if only_changes:
+                pivot = pivot[pivot["Δ abs"] != 0].copy()
+            pivot = pivot.sort_values(by="Δ abs", ascending=False, key=lambda s: s.abs()).reset_index(drop=True)
+        else:
+            value_cols = [c for c in pivot.columns if c != index_col_name]
+            if value_cols:
+                pivot["_sort_abs"] = pivot[value_cols].abs().sum(axis=1)
+                pivot = pivot.sort_values("_sort_abs", ascending=False).drop(columns=["_sort_abs"]).reset_index(drop=True)
+
+        if concept_filter:
+            pivot = pivot[
+                pivot[index_col_name].astype(str).str.contains(re.escape(concept_filter), case=False, na=False)
+            ].copy()
+        if hide_zero_rows:
+            numeric_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
+            if numeric_cols:
+                non_zero_mask = pivot[numeric_cols].fillna(0.0).abs().sum(axis=1) != 0
+                pivot = pivot[non_zero_mask].copy()
+        pivot = pivot.head(int(top_n))
+
+        if pivot.empty:
+            st.info(
+                "No hay filas para el desglose con los filtros actuales. "
+                "Prueba a quitar 'Solo con cambios', ampliar el Top, o limpiar la búsqueda."
+            )
+        else:
+            if hide_amounts:
+                for col in [c for c in pivot.columns if c != index_col_name]:
+                    pivot[col] = "••••••"
+            else:
+                eur_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
+                for col in eur_cols:
+                    if expand_amounts:
+                        pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
+                    else:
+                        pivot[col] = pivot[col].apply(lambda x: show_compact_eur(float(x)))
+                if "Δ %" in pivot.columns:
+                    pivot["Δ %"] = pivot["Δ %"].apply(lambda x: f"{float(x):.2f}%")
+
+            pivot_display = pivot.set_index(index_col_name)
+            st.dataframe(zebra_styler(pivot_display), width="stretch")
+        csv_payload = pivot.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Descargar desglose mensual (CSV)",
+            data=csv_payload,
+            file_name="desglose_mensual.csv",
+            mime="text/csv",
+        )
+
+
+def render_monthly_detail(monthly_view: pd.DataFrame) -> None:
+    with st.expander("Información mensual explicada"):
+        detail_cols = [
+            "Año",
+            "Mes",
+            "Periodo_natural",
+            "neto",
+            "total_devengado",
+            "total_deducir",
+            "irpf_importe",
+            "ss_importe",
+            "ahorro_fiscal",
+            "riqueza_real_mensual",
+            "ahorro_jub_empresa",
+            "ahorro_jub_empleado",
+            "ahorro_jub_total",
+            "ingresos_libres_impuestos",
+            "espp_gain",
+            "espp_neto_estimado",
+            "rsu_gain",
+            "rsu_neto_estimado",
+            "fijo_ingreso",
+            "variable_ingreso",
+            "beneficio_especie",
+            "pct_irpf",
+            "pct_ss",
+            "pct_variable",
+        ]
+        detail_df = monthly_view[detail_cols].rename(
+            columns={
+                "Periodo_natural": "Periodo",
+                "neto": "Neto",
+                "total_devengado": "Total devengado",
+                "total_deducir": "Total a deducir",
+                "irpf_importe": "IRPF (€)",
+                "ss_importe": "Seguridad Social (€)",
+                "ahorro_fiscal": "Ahorro fiscal (€)",
+                "riqueza_real_mensual": "Ingresos totales (€)",
+                "ahorro_jub_empresa": "Ahorro jub. empresa (€)",
+                "ahorro_jub_empleado": "Ahorro jub. empleado (€)",
+                "ahorro_jub_total": "Ahorro jubilación total (€)",
+                "ingresos_libres_impuestos": "Ingresos libres impuestos (€)",
+                "espp_gain": "ESPP Gain bruto (€)",
+                "espp_neto_estimado": "ESPP neto estimado (€)",
+                "rsu_gain": "RSU Gain bruto (€)",
+                "rsu_neto_estimado": "RSU neto estimado (€)",
+                "fijo_ingreso": "Ingreso fijo (€)",
+                "variable_ingreso": "Ingreso variable (€)",
+                "beneficio_especie": "Beneficio en especie (€)",
+                "pct_irpf": "% IRPF",
+                "pct_ss": "% SS",
+                "pct_variable": "% variable",
+            }
+        )
+        for col in ["% IRPF", "% SS", "% variable"]:
+            if col in detail_df.columns:
+                detail_df[col] = (detail_df[col].astype(float) * 100).round(2)
+        detail_df = apply_privacy_to_columns(
+            detail_df,
+            [
+                "Neto",
+                "Total devengado",
+                "Total a deducir",
+                "IRPF (€)",
+                "Seguridad Social (€)",
+                "Ahorro fiscal (€)",
+                "Ingresos totales (€)",
+                "Ahorro jub. empresa (€)",
+                "Ahorro jub. empleado (€)",
+                "Ahorro jubilación total (€)",
+                "Ingresos libres impuestos (€)",
+                "ESPP Gain bruto (€)",
+                "ESPP neto estimado (€)",
+                "RSU Gain bruto (€)",
+                "RSU neto estimado (€)",
+                "Ingreso fijo (€)",
+                "Ingreso variable (€)",
+                "Beneficio en especie (€)",
+            ],
+        )
+        st.dataframe(zebra_styler(detail_df), width="stretch")
+        detail_csv = detail_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Descargar detalle mensual (CSV)",
+            data=detail_csv,
+            file_name="detalle_mensual.csv",
+            mime="text/csv",
+        )
+
+
+def render_quality_sections(
+    quality_rows: list[dict[str, str]],
+    nominas_view: pd.DataFrame,
+    monthly: pd.DataFrame,
+) -> None:
+    if quality_rows:
+        with st.expander("Alertas de calidad detalladas"):
+            quality_df = pd.DataFrame(quality_rows, columns=["Periodo", "Alerta", "Detalle"])
+            st.dataframe(zebra_styler(quality_df), width="stretch")
+
+    with st.expander("Calidad de datos avanzada"):
+        quality_adv: list[dict[str, str]] = []
+        nom_base = nominas_view.copy()
+        nom_base["Concepto_up"] = nom_base["Concepto"].astype(str).str.upper()
+        nom_base["Importe_num"] = parse_spanish_amount_series(nom_base["Importe"])
+        salario_base = (
+            nom_base[nom_base["Concepto_up"].str.contains("SALARIO BASE", na=False)]
+            .groupby(["Año", "Mes"], as_index=False)["Importe_num"]
+            .sum()
+            .sort_values(["Año", "Mes"])
+        )
+        if not salario_base.empty:
+            med = float(salario_base["Importe_num"].median())
+            if med != 0:
+                salario_base["desv_pct"] = (salario_base["Importe_num"] - med).abs() / abs(med)
+                outliers = salario_base[salario_base["desv_pct"] > 0.20]
+                for _, r in outliers.iterrows():
+                    quality_adv.append(
+                        {
+                            "Periodo": f"{int(r['Año'])}-{int(r['Mes']):02d}",
+                            "Regla": "SALARIO BASE fuera de rango (>20% de mediana)",
+                            "Valor": format_eur(float(r["Importe_num"])),
+                        }
+                    )
+        if quality_adv:
+            st.dataframe(zebra_styler(pd.DataFrame(quality_adv)), width="stretch")
+        else:
+            st.info("Sin outliers detectados en SALARIO BASE con regla actual.")
+
+    with st.expander("Calendario de cobertura"):
+        coverage = monthly[["Año", "Mes"]].copy()
+        coverage["present"] = "OK"
+        coverage_pivot = (
+            coverage.pivot_table(index="Año", columns="Mes", values="present", aggfunc="first", fill_value="")
+            .reindex(columns=list(range(1, 13)), fill_value="")
+            .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
+            .reset_index()
+        )
+        st.dataframe(zebra_styler(coverage_pivot), width="stretch")
+
+
+def render_metric_definitions() -> None:
+    with st.expander("Definiciones de métricas"):
+        st.markdown(
+            """
+- `Ingresos totales = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
+- `% IRPF mensual = porcentaje informado en nómina (ej. 33,17%) si está disponible; si no, aproximación por ratio`
+- `Ahorro fiscal = ingresos_libres_impuestos * tipo marginal estimado (interno) + ahorro_jub_empresa`
+- `Ingresos recibidos = neto + consumo_especie + ahorro_jub_total + espp_neto_estimado + rsu_neto_estimado`
+- `IRPF efectivo anual = irpf_importe_anual / total_devengado_anual`
+            """
+        )
+
+
+def render_comparison_charts(
+    annual_view: pd.DataFrame,
+    monthly_view: pd.DataFrame,
+    year_option: int | str,
+    period_option: str,
+) -> None:
+    st.subheader("Comparativa y evolución")
+    if year_option == "Todos" and period_option == "Todos":
+        ch1, ch2 = st.columns(2)
+        annual_amount_chart = annual_view[["Año", "total_devengado", "neto"]].copy()
+        annual_amount_chart["ingresos_recibidos"] = (
+            annual_view["neto"]
+            + annual_view["consumo_especie"]
+            + annual_view["ahorro_jub_total"]
+            + annual_view["espp_neto_estimado"]
+            + annual_view["rsu_neto_estimado"]
+        )
+        annual_amount_chart = annual_amount_chart.rename(
+            columns={
+                "total_devengado": "Salario Bruto",
+                "neto": "Salario Neto",
+                "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+            }
+        )
+        if hide_amounts:
+            annual_amount_chart[
+                [
+                    "Salario Bruto",
+                    "Salario Neto",
+                    "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                ]
+            ] = 0.0
+        with ch1:
+            st.line_chart(
+                annual_amount_chart.set_index("Año")[
+                    [
+                        "Salario Bruto",
+                        "Salario Neto",
+                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                    ]
+                ]
+            )
+        annual_pct_chart = annual_view[["Año", "pct_irpf_efectivo_anual"]].copy()
+        annual_pct_chart["% IRPF efectivo anual"] = annual_pct_chart["pct_irpf_efectivo_anual"] * 100
+        with ch2:
+            st.line_chart(annual_pct_chart.set_index("Año")[["% IRPF efectivo anual"]])
+    else:
+        ch1, ch2 = st.columns(2)
+        monthly_amount_chart = monthly_view[["Periodo_natural", "total_devengado", "neto"]].copy()
+        monthly_amount_chart["ingresos_recibidos"] = (
+            monthly_view["neto"]
+            + monthly_view["consumo_especie"]
+            + monthly_view["ahorro_jub_total"]
+            + monthly_view["espp_neto_estimado"]
+            + monthly_view["rsu_neto_estimado"]
+        )
+        monthly_amount_chart = monthly_amount_chart.rename(
+            columns={
+                "total_devengado": "Salario Bruto",
+                "neto": "Salario Neto",
+                "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+            }
+        )
+        if hide_amounts:
+            monthly_amount_chart[
+                [
+                    "Salario Bruto",
+                    "Salario Neto",
+                    "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                ]
+            ] = 0.0
+        with ch1:
+            draw_monthly_chart(
+                monthly_amount_chart,
+                ["Salario Bruto", "Salario Neto", "Ingresos recibidos (incluyendo Tickets, pensión y acciones)"],
+                "Evolución salarial e ingresos recibidos",
+            )
+        with ch2:
+            draw_monthly_chart(monthly_view, ["pct_irpf"], "Evolución mensual (% IRPF)", percent_scale=True)
 
 
 def get_runtime_config() -> dict:
@@ -433,499 +832,41 @@ if not df_nominas.empty:
             ].copy()
         nominas_view = nominas_view.sort_values(["Año", "Mes", "Concepto"]).reset_index(drop=True)
 
-        m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
-        # Comparador de periodos para tarjetas mensuales
-        monthly_all = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
-        cur_year, cur_month = int(m["Año"]), int(m["Mes"])
-        cmp_row = None
-        if compare_mode == "Mes anterior":
-            prev = monthly_all[(monthly_all["Año"] < cur_year) | ((monthly_all["Año"] == cur_year) & (monthly_all["Mes"] < cur_month))]
-            if not prev.empty:
-                cmp_row = prev.iloc[-1]
-        elif compare_mode == "Mismo mes año anterior":
-            prev = monthly_all[(monthly_all["Año"] == cur_year - 1) & (monthly_all["Mes"] == cur_month)]
-            if not prev.empty:
-                cmp_row = prev.iloc[-1]
-        delta_label = None
-        if cmp_row is not None:
-            delta_label = f"vs {cmp_row['Periodo_natural']}"
-        with st.container(border=True):
-            monthly_title = "KPIs mensuales"
-            if year_option == "Todos" and period_option == "Todos":
-                monthly_title += " (último mes disponible)"
-            compare_chip = ""
-            if compare_mode != "Sin comparación":
-                compare_chip_text = (
-                    delta_label
-                    if delta_label is not None
-                    else ("vs mes anterior" if compare_mode == "Mes anterior" else "vs mismo mes año anterior")
-                )
-                compare_chip = (
-                    f"<span style='margin-left:8px;padding:2px 8px;border-radius:999px;"
-                    f"background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3;'>{compare_chip_text}</span>"
-                )
-            st.markdown(f"### {monthly_title}{compare_chip}", unsafe_allow_html=True)
-            c1, c2, c3, c4, c5 = st.columns(5)
-            if cmp_row is not None:
-                metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
-                metric_with_help(c2, "Neto", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
-                metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
-            else:
-                metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])))
-                metric_with_help(c2, "Neto", show_eur(float(m["neto"])))
-                metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
-            metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
-            metric_with_help(c5, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"])))
+        render_monthly_kpis_card(
+            monthly_view=monthly_view,
+            monthly=monthly,
+            year_option=year_option,
+            period_option=period_option,
+            compare_mode=compare_mode,
+            raw_nominas=df_nominas,
+        )
 
-            ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
-            c6, c7, c8, c9, c10 = st.columns(5)
-            metric_with_help(c6, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"])))
-            metric_with_help(c7, "Ahorro jubilación", show_eur(ahorro_jub_mensual))
-            metric_with_help(c8, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"])))
-            metric_with_help(c9, "Ahorro jub. empresa", show_eur(float(m["ahorro_jub_empresa"])))
-            metric_with_help(c10, "Ahorro jub. empleado", show_eur(float(m["ahorro_jub_empleado"])))
+        render_annual_kpis_card(
+            annual_view=annual_view,
+            monthly=monthly,
+            monthly_view=monthly_view,
+            year_option=year_option,
+        )
 
-            if cmp_row is not None:
-                with st.expander("Explicar delta (Top 5 conceptos)"):
-                    raw_comp = df_nominas.copy()
-                    raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
-                    raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
-                    raw_comp["Importe_num"] = pd.to_numeric(
-                        raw_comp["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
-                        errors="coerce",
-                    ).fillna(0.0)
-                    cur_rows = raw_comp[(raw_comp["Año"] == cur_year) & (raw_comp["Mes"] == cur_month)].copy()
-                    prev_rows = raw_comp[
-                        (raw_comp["Año"] == int(cmp_row["Año"])) & (raw_comp["Mes"] == int(cmp_row["Mes"]))
-                    ].copy()
-                    for frame in (cur_rows, prev_rows):
-                        frame["Concepto_agrupado"] = frame["Concepto"].astype(str)
-                        irpf_mask = frame["Concepto_agrupado"].str.upper().str.contains(
-                            r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True
-                        )
-                        frame.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
-                    cur_agg = cur_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
-                        columns={"Importe_num": "Actual"}
-                    )
-                    prev_agg = prev_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
-                        columns={"Importe_num": "Comparado"}
-                    )
-                    explain = cur_agg.merge(prev_agg, on="Concepto_agrupado", how="outer").fillna(0.0)
-                    explain["Delta"] = explain["Actual"] - explain["Comparado"]
-                    explain = explain.sort_values("Delta", ascending=False, key=lambda s: s.abs()).head(5)
-                    explain = explain.rename(columns={"Concepto_agrupado": "Concepto"})
-                    if hide_amounts:
-                        for col in ["Actual", "Comparado", "Delta"]:
-                            explain[col] = "••••••"
-                    else:
-                        for col in ["Actual", "Comparado", "Delta"]:
-                            explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
-                    st.dataframe(zebra_styler(explain), width="stretch")
+        render_comparison_charts(
+            annual_view=annual_view,
+            monthly_view=monthly_view,
+            year_option=year_option,
+            period_option=period_option,
+        )
+        render_monthly_detail(monthly_view=monthly_view)
 
-        with st.container(border=True):
-            annual_title = "KPIs anuales"
-            if year_option == "Todos":
-                annual_title += " (último año disponible)"
-            st.subheader(annual_title)
-            y = annual_view.sort_values("Año").iloc[-1]
-            irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
-            a1, a2, a3, a4, a5 = st.columns(5)
-            metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"])))
-            metric_with_help(a2, "Neto", show_eur(float(y["neto"])))
-            metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
-            metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
-            metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"])))
+        render_breakdown(
+            nominas_view=nominas_view,
+            monthly_view=monthly_view,
+            period_option=period_option,
+        )
 
-            b1, b2, b3, b4, b5 = st.columns(5)
-            metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
-            metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
-            metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
-            b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
-            b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
-
-            block_left, block_right = st.columns([3, 2])
-            with block_left:
-                with st.container(border=True):
-                    st.markdown("##### Jubilación")
-                    jub_total = float(y["ahorro_jub_total"])
-                    jub_empresa = float(y["ahorro_jub_empresa"])
-                    jub_empleado = float(y["ahorro_jub_empleado"])
-
-                    j1, j2, j3 = st.columns(3)
-                    metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
-                    metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
-                    metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
-            with block_right:
-                with st.container(border=True):
-                    st.markdown("##### ESPP y RSU")
-                    rm1, rm2 = st.columns(2)
-                    metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
-                    metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
-                    gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
-                        columns={
-                            "Periodo_natural": "Periodo",
-                            "espp_gain": "ESPP Gain",
-                            "rsu_gain": "RSU Gain",
-                        }
-                    )
-                    gains_table = gains_table[
-                        (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
-                        | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
-                    ].reset_index(drop=True)
-                    if gains_table.empty:
-                        st.info(
-                            "Sin datos de ESPP/RSU para el filtro actual. "
-                            "Prueba con otro año o selecciona 'Todos' en mes."
-                        )
-                    else:
-                        with st.expander("Ver detalle mensual ESPP/RSU", expanded=False):
-                            gains_recent = gains_table.copy()
-                            gains_recent = apply_privacy_to_columns(gains_recent, ["ESPP Gain", "RSU Gain"])
-                            st.dataframe(zebra_styler(gains_recent), width="stretch")
-                            csv_payload = gains_table.to_csv(index=False).encode("utf-8")
-                            st.download_button(
-                                "Descargar ESPP/RSU mensual (CSV)",
-                                data=csv_payload,
-                                file_name="espp_rsu_mensual.csv",
-                                mime="text/csv",
-                            )
-
-        st.subheader("Comparativa y evolución")
-        if year_option == "Todos" and period_option == "Todos":
-            ch1, ch2 = st.columns(2)
-            annual_amount_chart = annual_view[["Año", "total_devengado", "neto"]].copy()
-            annual_amount_chart["ingresos_recibidos"] = (
-                annual_view["neto"]
-                + annual_view["consumo_especie"]
-                + annual_view["ahorro_jub_total"]
-                + annual_view["espp_neto_estimado"]
-                + annual_view["rsu_neto_estimado"]
-            )
-            annual_amount_chart = annual_amount_chart.rename(
-                columns={
-                    "total_devengado": "Salario Bruto",
-                    "neto": "Salario Neto",
-                    "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                }
-            )
-            if hide_amounts:
-                annual_amount_chart[
-                    [
-                        "Salario Bruto",
-                        "Salario Neto",
-                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                    ]
-                ] = 0.0
-            with ch1:
-                st.line_chart(
-                    annual_amount_chart.set_index("Año")[
-                        [
-                            "Salario Bruto",
-                            "Salario Neto",
-                            "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                        ]
-                    ]
-                )
-            annual_pct_chart = annual_view[["Año", "pct_irpf_efectivo_anual"]].copy()
-            annual_pct_chart["% IRPF efectivo anual"] = annual_pct_chart["pct_irpf_efectivo_anual"] * 100
-            with ch2:
-                st.line_chart(annual_pct_chart.set_index("Año")[["% IRPF efectivo anual"]])
-        else:
-            ch1, ch2 = st.columns(2)
-            monthly_amount_chart = monthly_view[["Periodo_natural", "total_devengado", "neto"]].copy()
-            monthly_amount_chart["ingresos_recibidos"] = (
-                monthly_view["neto"]
-                + monthly_view["consumo_especie"]
-                + monthly_view["ahorro_jub_total"]
-                + monthly_view["espp_neto_estimado"]
-                + monthly_view["rsu_neto_estimado"]
-            )
-            monthly_amount_chart = monthly_amount_chart.rename(
-                columns={
-                    "total_devengado": "Salario Bruto",
-                    "neto": "Salario Neto",
-                    "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                }
-            )
-            if hide_amounts:
-                monthly_amount_chart[
-                    [
-                        "Salario Bruto",
-                        "Salario Neto",
-                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                    ]
-                ] = 0.0
-            with ch1:
-                draw_monthly_chart(
-                    monthly_amount_chart,
-                    ["Salario Bruto", "Salario Neto", "Ingresos recibidos (incluyendo Tickets, pensión y acciones)"],
-                    "Evolución salarial e ingresos recibidos",
-                )
-            with ch2:
-                draw_monthly_chart(monthly_view, ["pct_irpf"], "Evolución mensual (% IRPF)", percent_scale=True)
-        with st.expander("Información mensual explicada"):
-            detail_cols = [
-                "Año",
-                "Mes",
-                "Periodo_natural",
-                "neto",
-                "total_devengado",
-                "total_deducir",
-                "irpf_importe",
-                "ss_importe",
-                "ahorro_fiscal",
-                "riqueza_real_mensual",
-                "ahorro_jub_empresa",
-                "ahorro_jub_empleado",
-                "ahorro_jub_total",
-                "ingresos_libres_impuestos",
-                "espp_gain",
-                "espp_neto_estimado",
-                "rsu_gain",
-                "rsu_neto_estimado",
-                "fijo_ingreso",
-                "variable_ingreso",
-                "beneficio_especie",
-                "pct_irpf",
-                "pct_ss",
-                "pct_variable",
-            ]
-            detail_df = monthly_view[detail_cols].rename(
-                    columns={
-                        "Periodo_natural": "Periodo",
-                        "neto": "Neto",
-                        "total_devengado": "Total devengado",
-                        "total_deducir": "Total a deducir",
-                        "irpf_importe": "IRPF (€)",
-                        "ss_importe": "Seguridad Social (€)",
-                        "ahorro_fiscal": "Ahorro fiscal (€)",
-                        "riqueza_real_mensual": "Ingresos totales (€)",
-                        "ahorro_jub_empresa": "Ahorro jub. empresa (€)",
-                        "ahorro_jub_empleado": "Ahorro jub. empleado (€)",
-                        "ahorro_jub_total": "Ahorro jubilación total (€)",
-                        "ingresos_libres_impuestos": "Ingresos libres impuestos (€)",
-                        "espp_gain": "ESPP Gain bruto (€)",
-                        "espp_neto_estimado": "ESPP neto estimado (€)",
-                        "rsu_gain": "RSU Gain bruto (€)",
-                        "rsu_neto_estimado": "RSU neto estimado (€)",
-                        "fijo_ingreso": "Ingreso fijo (€)",
-                        "variable_ingreso": "Ingreso variable (€)",
-                        "beneficio_especie": "Beneficio en especie (€)",
-                        "pct_irpf": "% IRPF",
-                        "pct_ss": "% SS",
-                        "pct_variable": "% variable",
-                    }
-                )
-            for col in ["% IRPF", "% SS", "% variable"]:
-                if col in detail_df.columns:
-                    detail_df[col] = (detail_df[col].astype(float) * 100).round(2)
-            detail_df = apply_privacy_to_columns(
-                detail_df,
-                [
-                    "Neto",
-                    "Total devengado",
-                    "Total a deducir",
-                    "IRPF (€)",
-                    "Seguridad Social (€)",
-                    "Ahorro fiscal (€)",
-                    "Ingresos totales (€)",
-                    "Ahorro jub. empresa (€)",
-                    "Ahorro jub. empleado (€)",
-                    "Ahorro jubilación total (€)",
-                    "Ingresos libres impuestos (€)",
-                    "ESPP Gain bruto (€)",
-                    "ESPP neto estimado (€)",
-                    "RSU Gain bruto (€)",
-                    "RSU neto estimado (€)",
-                    "Ingreso fijo (€)",
-                    "Ingreso variable (€)",
-                    "Beneficio en especie (€)",
-                ],
-            )
-            st.dataframe(zebra_styler(detail_df), width="stretch")
-            detail_csv = detail_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Descargar detalle mensual (CSV)",
-                data=detail_csv,
-                file_name="detalle_mensual.csv",
-                mime="text/csv",
-            )
-
-        with st.expander("Desglose mensual"):
-            breakdown = nominas_view.copy()
-            breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
-            irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
-            breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
-            ctrl1, ctrl2, ctrl3, ctrl4, ctrl5, ctrl6 = st.columns(6)
-            with ctrl1:
-                grouping_mode = st.selectbox(
-                    "Agrupar por",
-                    options=["Concepto", "Subcategoría"],
-                    index=0,
-                    key="breakdown_grouping_mode",
-                )
-            with ctrl2:
-                concept_filter = st.text_input(
-                    "Buscar texto",
-                    value="",
-                    key="breakdown_text_filter",
-                    placeholder="Ej. IRPF, ESPP, SALARIO...",
-                ).strip()
-            with ctrl3:
-                only_changes = st.checkbox("Solo con cambios (Δ abs != 0)", value=False, key="breakdown_only_changes")
-            with ctrl4:
-                hide_zero_rows = st.checkbox("Ocultar filas en cero", value=True, key="breakdown_hide_zeros")
-            with ctrl5:
-                top_n = st.number_input("Top filas", min_value=10, max_value=5000, value=200, step=10, key="breakdown_top_n")
-            with ctrl6:
-                expand_amounts = st.checkbox("Expandir importes", value=False, key="breakdown_expand_amounts")
-            breakdown["Importe_num"] = pd.to_numeric(
-                breakdown["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
-                errors="coerce",
-            ).fillna(0.0)
-            breakdown["Periodo"] = (
-                breakdown["Año"].astype(int).astype(str) + "-" + breakdown["Mes"].astype(int).astype(str).str.zfill(2)
-            )
-            if grouping_mode == "Subcategoría":
-                breakdown["Clave_desglose"] = breakdown["Subcategoría"].astype(str)
-                index_col_name = "Subcategoría"
-            else:
-                breakdown["Clave_desglose"] = breakdown["Concepto_agrupado"]
-                index_col_name = "Concepto"
-
-            if period_option == "Todos":
-                month_order = monthly_view["Periodo"].drop_duplicates().tolist()
-            else:
-                month_order = [period_option]
-
-            pivot = (
-                breakdown.pivot_table(
-                    index="Clave_desglose",
-                    columns="Periodo",
-                    values="Importe_num",
-                    aggfunc="sum",
-                    fill_value=0.0,
-                )
-                .reindex(columns=month_order, fill_value=0.0)
-                .reset_index()
-            )
-            pivot = pivot.rename(columns={"Clave_desglose": index_col_name})
-
-            if period_option == "Todos" and len(month_order) >= 2:
-                latest = month_order[-1]
-                prev = month_order[-2]
-                pivot["Δ abs"] = pivot[latest] - pivot[prev]
-                pivot["Δ %"] = pivot.apply(
-                    lambda r: ((r[latest] - r[prev]) / r[prev] * 100.0) if float(r[prev]) != 0 else 0.0, axis=1
-                )
-                if only_changes:
-                    pivot = pivot[pivot["Δ abs"] != 0].copy()
-                pivot = pivot.sort_values(by="Δ abs", ascending=False, key=lambda s: s.abs()).reset_index(drop=True)
-            else:
-                value_cols = [c for c in pivot.columns if c != index_col_name]
-                if value_cols:
-                    pivot["_sort_abs"] = pivot[value_cols].abs().sum(axis=1)
-                    pivot = pivot.sort_values("_sort_abs", ascending=False).drop(columns=["_sort_abs"]).reset_index(drop=True)
-
-            if concept_filter:
-                pivot = pivot[
-                    pivot[index_col_name].astype(str).str.contains(re.escape(concept_filter), case=False, na=False)
-                ].copy()
-            if hide_zero_rows:
-                numeric_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
-                if numeric_cols:
-                    non_zero_mask = pivot[numeric_cols].fillna(0.0).abs().sum(axis=1) != 0
-                    pivot = pivot[non_zero_mask].copy()
-            pivot = pivot.head(int(top_n))
-
-            if pivot.empty:
-                st.info(
-                    "No hay filas para el desglose con los filtros actuales. "
-                    "Prueba a quitar 'Solo con cambios', ampliar el Top, o limpiar la búsqueda."
-                )
-            else:
-                if hide_amounts:
-                    for col in [c for c in pivot.columns if c != index_col_name]:
-                        pivot[col] = "••••••"
-                else:
-                    eur_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
-                    for col in eur_cols:
-                        if expand_amounts:
-                            pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
-                        else:
-                            pivot[col] = pivot[col].apply(lambda x: show_compact_eur(float(x)))
-                    if "Δ %" in pivot.columns:
-                        pivot["Δ %"] = pivot["Δ %"].apply(lambda x: f"{float(x):.2f}%")
-
-                pivot_display = pivot.set_index(index_col_name)
-                st.dataframe(zebra_styler(pivot_display), width="stretch")
-            csv_payload = pivot.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Descargar desglose mensual (CSV)",
-                data=csv_payload,
-                file_name="desglose_mensual.csv",
-                mime="text/csv",
-            )
-
-        if quality_rows:
-            with st.expander("Alertas de calidad detalladas"):
-                quality_df = pd.DataFrame(quality_rows, columns=["Periodo", "Alerta", "Detalle"])
-                st.dataframe(zebra_styler(quality_df), width="stretch")
-
-        # Calidad avanzada: outliers en SALARIO BASE frente a mediana histórica
-        with st.expander("Calidad de datos avanzada"):
-            quality_adv: list[dict[str, str]] = []
-            nom_base = nominas_view.copy()
-            nom_base["Concepto_up"] = nom_base["Concepto"].astype(str).str.upper()
-            nom_base["Importe_num"] = pd.to_numeric(
-                nom_base["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
-                errors="coerce",
-            ).fillna(0.0)
-            salario_base = (
-                nom_base[nom_base["Concepto_up"].str.contains("SALARIO BASE", na=False)]
-                .groupby(["Año", "Mes"], as_index=False)["Importe_num"]
-                .sum()
-                .sort_values(["Año", "Mes"])
-            )
-            if not salario_base.empty:
-                med = float(salario_base["Importe_num"].median())
-                if med != 0:
-                    salario_base["desv_pct"] = (salario_base["Importe_num"] - med).abs() / abs(med)
-                    outliers = salario_base[salario_base["desv_pct"] > 0.20]
-                    for _, r in outliers.iterrows():
-                        quality_adv.append(
-                            {
-                                "Periodo": f"{int(r['Año'])}-{int(r['Mes']):02d}",
-                                "Regla": "SALARIO BASE fuera de rango (>20% de mediana)",
-                                "Valor": format_eur(float(r["Importe_num"])),
-                            }
-                        )
-            if quality_adv:
-                st.dataframe(zebra_styler(pd.DataFrame(quality_adv)), width="stretch")
-            else:
-                st.info("Sin outliers detectados en SALARIO BASE con regla actual.")
-
-        # Cobertura de meses disponibles por año
-        with st.expander("Calendario de cobertura"):
-            coverage = monthly[["Año", "Mes"]].copy()
-            coverage["present"] = "OK"
-            coverage_pivot = (
-                coverage.pivot_table(index="Año", columns="Mes", values="present", aggfunc="first", fill_value="")
-                .reindex(columns=list(range(1, 13)), fill_value="")
-                .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
-                .reset_index()
-            )
-            st.dataframe(zebra_styler(coverage_pivot), width="stretch")
-
-        with st.expander("Definiciones de métricas"):
-            st.markdown(
-                """
-- `Ingresos totales = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
-- `% IRPF mensual = porcentaje informado en nómina (ej. 33,17%) si está disponible; si no, aproximación por ratio`
-- `Ahorro fiscal = ingresos_libres_impuestos * tipo marginal estimado (interno) + ahorro_jub_empresa`
-- `Ingresos recibidos = neto + consumo_especie + ahorro_jub_total + espp_neto_estimado + rsu_neto_estimado`
-- `IRPF efectivo anual = irpf_importe_anual / total_devengado_anual`
-                """
-            )
+        render_quality_sections(
+            quality_rows=quality_rows,
+            nominas_view=nominas_view,
+            monthly=monthly,
+        )
+        render_metric_definitions()
 else:
     st.info("No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.")

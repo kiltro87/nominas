@@ -161,3 +161,17 @@ Cobertura actual de tests:
 - clasificación de conceptos y signo de deducciones
 - cálculo de KPIs mensuales/anuales y comparativa YoY (a partir de `Nominas`)
 - deduplicación y corte incremental por `modifiedTime` en ingesta Drive
+
+## 11) Checklist visual rápida (UI)
+
+Tras cualquier cambio de `app.py`, revisar en 2-3 minutos:
+
+- Filtros en una fila: `Año`, `Mes`, `Comparación` visibles y funcionales.
+- KPIs mensuales: 2 filas x 5 tarjetas, alineadas y sin solapes.
+- KPIs anuales: tarjetas centradas/alineadas; bloque `Jubilación` y bloque `ESPP y RSU` dentro de su tarjeta.
+- Gráficas de comparativa/evolución en la misma fila (anual y mensual).
+- Tabla `Información mensual explicada`: zebra rows y empieza en índice visual 1.
+- Tabla `Desglose mensual`: orden cronológico de columnas, zebra rows y filtros (texto, cambios, ceros) operativos.
+- `Modo privacidad`: oculta importes en KPIs, tablas y gráficas.
+- Estados vacíos: mensajes claros en `ESPP/RSU` y `Desglose mensual`.
+- Responsive básico: en ancho reducido, columnas hacen wrap sin romper métricas.
