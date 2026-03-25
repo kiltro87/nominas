@@ -12,6 +12,35 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 - `nominas/services/*`: preparación de dataframes para vistas y alertas.
 - `subcategorias.json`: catálogo editable de matching de conceptos -> subcategorías.
 
+### Estructura recomendada
+
+```text
+.
+├── app.py
+├── drive_ingestor.py
+├── extractor.py
+├── kpi_builder.py
+├── sheets_client.py
+├── subcategorias.json
+├── nominas/
+│   ├── services/
+│   │   ├── config_loader.py
+│   │   └── dashboard_data.py
+│   └── ui/
+│       ├── cards.py
+│       ├── charts.py
+│       ├── formatting.py
+│       ├── quality.py
+│       ├── style.py
+│       └── tables.py
+└── tests/
+    ├── test_app_smoke.py
+    ├── test_dashboard_services.py
+    ├── test_drive_ingestor.py
+    ├── test_extractor_core.py
+    └── test_kpi_builder.py
+```
+
 ## 1) Instalación
 
 Requisitos recomendados:
@@ -163,6 +192,8 @@ Cobertura actual de tests:
 - clasificación de conceptos y signo de deducciones
 - cálculo de KPIs mensuales/anuales y comparativa YoY (a partir de `Nominas`)
 - deduplicación y corte incremental por `modifiedTime` en ingesta Drive
+- preparación de vistas/alertas del dashboard (servicios de datos)
+- smoke test de compilación de `app.py`
 
 ## 11) Checklist visual rápida (UI)
 
