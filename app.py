@@ -356,40 +356,40 @@ if not df_nominas.empty:
 
             if cmp_row is not None:
                 with st.expander("Explicar delta (Top 5 conceptos)"):
-                raw_comp = df_nominas.copy()
-                raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
-                raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
-                raw_comp["Importe_num"] = pd.to_numeric(
-                    raw_comp["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
-                    errors="coerce",
-                ).fillna(0.0)
-                cur_rows = raw_comp[(raw_comp["Año"] == cur_year) & (raw_comp["Mes"] == cur_month)].copy()
-                prev_rows = raw_comp[
-                    (raw_comp["Año"] == int(cmp_row["Año"])) & (raw_comp["Mes"] == int(cmp_row["Mes"]))
-                ].copy()
-                for frame in (cur_rows, prev_rows):
-                    frame["Concepto_agrupado"] = frame["Concepto"].astype(str)
-                    irpf_mask = frame["Concepto_agrupado"].str.upper().str.contains(
-                        r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True
+                    raw_comp = df_nominas.copy()
+                    raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
+                    raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
+                    raw_comp["Importe_num"] = pd.to_numeric(
+                        raw_comp["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+                        errors="coerce",
+                    ).fillna(0.0)
+                    cur_rows = raw_comp[(raw_comp["Año"] == cur_year) & (raw_comp["Mes"] == cur_month)].copy()
+                    prev_rows = raw_comp[
+                        (raw_comp["Año"] == int(cmp_row["Año"])) & (raw_comp["Mes"] == int(cmp_row["Mes"]))
+                    ].copy()
+                    for frame in (cur_rows, prev_rows):
+                        frame["Concepto_agrupado"] = frame["Concepto"].astype(str)
+                        irpf_mask = frame["Concepto_agrupado"].str.upper().str.contains(
+                            r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True
+                        )
+                        frame.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
+                    cur_agg = cur_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
+                        columns={"Importe_num": "Actual"}
                     )
-                    frame.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
-                cur_agg = cur_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
-                    columns={"Importe_num": "Actual"}
-                )
-                prev_agg = prev_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
-                    columns={"Importe_num": "Comparado"}
-                )
-                explain = cur_agg.merge(prev_agg, on="Concepto_agrupado", how="outer").fillna(0.0)
-                explain["Delta"] = explain["Actual"] - explain["Comparado"]
-                explain = explain.sort_values("Delta", ascending=False, key=lambda s: s.abs()).head(5)
-                explain = explain.rename(columns={"Concepto_agrupado": "Concepto"})
-                if hide_amounts:
-                    for col in ["Actual", "Comparado", "Delta"]:
-                        explain[col] = "••••••"
-                else:
-                    for col in ["Actual", "Comparado", "Delta"]:
-                        explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
-                st.dataframe(zebra_styler(explain), width="stretch")
+                    prev_agg = prev_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
+                        columns={"Importe_num": "Comparado"}
+                    )
+                    explain = cur_agg.merge(prev_agg, on="Concepto_agrupado", how="outer").fillna(0.0)
+                    explain["Delta"] = explain["Actual"] - explain["Comparado"]
+                    explain = explain.sort_values("Delta", ascending=False, key=lambda s: s.abs()).head(5)
+                    explain = explain.rename(columns={"Concepto_agrupado": "Concepto"})
+                    if hide_amounts:
+                        for col in ["Actual", "Comparado", "Delta"]:
+                            explain[col] = "••••••"
+                    else:
+                        for col in ["Actual", "Comparado", "Delta"]:
+                            explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
+                    st.dataframe(zebra_styler(explain), width="stretch")
 
         with st.container(border=True):
             annual_title = "KPIs anuales"
