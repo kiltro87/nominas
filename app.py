@@ -15,6 +15,20 @@ from sheets_client import SheetsClient
 
 st.set_page_config(page_title="Análisis de Nóminas", layout="wide")
 st.title("Análisis de Nóminas")
+st.markdown(
+    """
+<style>
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #fafbff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 hide_amounts = st.toggle(
     "Modo privacidad",
