@@ -385,33 +385,30 @@ if not df_nominas.empty:
         b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
         b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
 
-        block_left, block_right = st.columns([2, 1])
+        block_left, block_right = st.columns([1, 1])
         with block_left:
-            st.markdown("##### Jubilación, ESPP y RSU")
+            st.markdown("##### Jubilación")
             jub_total = float(y["ahorro_jub_total"])
             jub_empresa = float(y["ahorro_jub_empresa"])
             jub_empleado = float(y["ahorro_jub_empleado"])
             empresa_ratio = (jub_empresa / jub_total) if jub_total > 0 else 0.0
             empleado_ratio = (jub_empleado / jub_total) if jub_total > 0 else 0.0
 
-            jub_col, variable_col = st.columns([1.8, 1.2])
-            with jub_col:
-                st.caption("Jubilación")
-                total_col, split_col = st.columns([1.2, 1.0])
-                with total_col:
-                    metric_with_help(st, "Ahorro jubilación", show_eur(jub_total))
-                with split_col:
-                    metric_with_help(st, "Aportación empresa", show_eur(jub_empresa))
-                    metric_with_help(st, "Aportación empleado", show_eur(jub_empleado))
-                st.progress(max(0.0, min(1.0, empresa_ratio)))
-                st.caption(
-                    f"Reparto: Empresa {empresa_ratio * 100:.1f}% | Empleado {empleado_ratio * 100:.1f}%"
-                )
-            with variable_col:
-                st.caption("Variable (bruto)")
-                metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
-                metric_with_help(st, "RSU bruto", show_eur(float(y["rsu_gain"])))
+            total_col, split_col = st.columns([1.2, 1.0])
+            with total_col:
+                metric_with_help(st, "Ahorro jubilación", show_eur(jub_total))
+            with split_col:
+                metric_with_help(st, "Aportación empresa", show_eur(jub_empresa))
+                metric_with_help(st, "Aportación empleado", show_eur(jub_empleado))
+            st.progress(max(0.0, min(1.0, empresa_ratio)))
+            st.caption(
+                f"Reparto: Empresa {empresa_ratio * 100:.1f}% | Empleado {empleado_ratio * 100:.1f}%"
+            )
         with block_right:
+            st.markdown("##### ESPP y RSU")
+            v1, v2 = st.columns(2)
+            metric_with_help(v1, "ESPP bruto", show_eur(float(y["espp_gain"])))
+            metric_with_help(v2, "RSU bruto", show_eur(float(y["rsu_gain"])))
             st.markdown("##### ESPP Gain por mes")
             if not espp_view.empty:
                 espp_table = espp_view[["Periodo_natural", "espp_gain"]].rename(
