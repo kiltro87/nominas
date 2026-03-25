@@ -18,12 +18,54 @@ st.title("Análisis de Nóminas")
 st.markdown(
     """
 <style>
-div[data-testid="stVerticalBlockBorderWrapper"] {
-    background: #fafbff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 0.8rem 0.9rem;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+/* Section cards (robust selectors for Streamlit local/cloud) */
+div[data-testid="stVerticalBlockBorderWrapper"],
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+    background: #f8faff !important;
+    border: 1px solid #dbe4ff !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 8px rgba(30, 41, 59, 0.06) !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+    padding: 0.9rem 1rem !important;
+}
+
+/* Metric cards inside sections */
+div[data-testid="stMetric"] {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 10px !important;
+    padding: 0.45rem 0.55rem !important;
+}
+
+/* Better spacing between column blocks */
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.8rem !important;
+}
+
+/* Responsive layout: allow columns to wrap */
+@media (max-width: 1200px) {
+    div[data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+    }
+    div[data-testid="column"] {
+        flex: 1 1 280px !important;
+        min-width: 280px !important;
+    }
+}
+
+@media (max-width: 760px) {
+    div[data-testid="column"] {
+        min-width: 100% !important;
+        flex-basis: 100% !important;
+    }
+    div[data-testid="stMetric"] label p {
+        font-size: 0.82rem !important;
+    }
+    div[data-testid="stMetricValue"] {
+        font-size: 1.4rem !important;
+    }
 }
 </style>
 """,
