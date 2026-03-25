@@ -32,7 +32,6 @@ METRIC_HELP: dict[str, str] = {
     "IRPF medio": "Promedio mensual del % IRPF en el año mostrado.",
     "Riqueza real": "Suma anual de riqueza real mensual (neto + componentes de largo plazo).",
     "Ahorro jubilación": "Aportación total (empresa + empleado) a jubilación.",
-    "Bruto variable": "Suma de ingresos variables brutos del año.",
     "Bruto mes": "Suma de devengos netos del mes.",
     "% IRPF mes": "Porcentaje de IRPF informado en nómina (si existe) o ratio IRPF/Bruto del mes.",
     "Neto mes": "Bruto del mes menos total a deducir del mes.",
@@ -361,11 +360,10 @@ if not df_nominas.empty:
         metric_with_help(a5, "Riqueza real", show_eur(float(y["riqueza_real_anual"])))
         metric_with_help(a6, "Consumo en especie", show_eur(float(y["consumo_especie"])))
 
-        b1, b2, b3, b4 = st.columns(4)
+        b1, b2, b3 = st.columns(3)
         metric_with_help(b1, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
-        metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
-        metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
-        metric_with_help(b4, "Bruto variable", show_eur(float(y["variable_ingreso"])))
+        metric_with_help(b2, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
+        metric_with_help(b3, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
 
         st.markdown("##### Jubilación, ESPP y RSU")
         grp1, grp2, grp3 = st.columns(3)
