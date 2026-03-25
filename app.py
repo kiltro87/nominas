@@ -18,6 +18,7 @@ st.title("Análisis de Nóminas")
 st.caption("Dashboard de nóminas alimentado automáticamente desde Drive -> Google Sheets")
 
 hide_amounts = st.toggle("Modo privacidad: ocultar importes", value=False)
+compact_mode = st.toggle("Modo compacto", value=False)
 
 
 def show_eur(value: float) -> str:
@@ -254,6 +255,43 @@ if not df_nominas.empty:
         c8.metric("Ahorro jub. empleado mes", show_eur(float(m["ahorro_jub_empleado"])))
         c9.metric("Ingresos libres imp. mes", show_eur(float(m["ingresos_libres_impuestos"])))
 
+        if cmp_row is not None:
+            with st.expander("Explicar delta (Top 5 conceptos)"):
+                raw_comp = df_nominas.copy()
+                raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
+                raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
+                raw_comp["Importe_num"] = pd.to_numeric(
+                    raw_comp["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+                    errors="coerce",
+                ).fillna(0.0)
+                cur_rows = raw_comp[(raw_comp["Año"] == cur_year) & (raw_comp["Mes"] == cur_month)].copy()
+                prev_rows = raw_comp[
+                    (raw_comp["Año"] == int(cmp_row["Año"])) & (raw_comp["Mes"] == int(cmp_row["Mes"]))
+                ].copy()
+                for frame in (cur_rows, prev_rows):
+                    frame["Concepto_agrupado"] = frame["Concepto"].astype(str)
+                    irpf_mask = frame["Concepto_agrupado"].str.upper().str.contains(
+                        r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True
+                    )
+                    frame.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
+                cur_agg = cur_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
+                    columns={"Importe_num": "Actual"}
+                )
+                prev_agg = prev_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(
+                    columns={"Importe_num": "Comparado"}
+                )
+                explain = cur_agg.merge(prev_agg, on="Concepto_agrupado", how="outer").fillna(0.0)
+                explain["Delta"] = explain["Actual"] - explain["Comparado"]
+                explain = explain.sort_values("Delta", ascending=False, key=lambda s: s.abs()).head(5)
+                explain = explain.rename(columns={"Concepto_agrupado": "Concepto"})
+                if hide_amounts:
+                    for col in ["Actual", "Comparado", "Delta"]:
+                        explain[col] = "••••••"
+                else:
+                    for col in ["Actual", "Comparado", "Delta"]:
+                        explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
+                st.dataframe(explain, width="stretch")
+
         annual_title = "KPIs anuales"
         if year_option == "Todos":
             annual_title += " (último año disponible)"
@@ -356,42 +394,44 @@ if not df_nominas.empty:
                 "Evolución salarial e ingresos recibidos",
             )
             draw_monthly_chart(monthly_view, ["pct_irpf", "pct_ss"], "Evolución mensual (% IRPF y % SS)", percent_scale=True)
-        annual_table = annual_view[
-            ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
-        ].copy()
-        for col in ["pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]:
-            annual_table[col] = (annual_table[col].astype(float) * 100).round(2)
-        annual_table = apply_privacy_to_columns(annual_table, ["neto", "delta_neto_vs_anterior"])
-        st.dataframe(
-            annual_table.rename(
-                columns={
-                    "Año": "Año",
-                    "neto": "Neto anual",
-                    "delta_neto_vs_anterior": "Delta neto vs año anterior",
-                    "pct_crecimiento_neto_yoy": "% crecimiento neto YoY",
-                    "pct_irpf_efectivo_anual": "% IRPF efectivo anual",
-                    "delta_irpf_yoy": "Delta IRPF YoY (pp)",
-                }
-            ),
-            width="stretch",
-        )
-        annual_csv = annual_table.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Descargar KPIs anuales (CSV)",
-            data=annual_csv,
-            file_name="kpis_anuales.csv",
-            mime="text/csv",
-        )
-
-        st.subheader("ESPP Gain por mes")
-        if not espp_view.empty:
-            espp_table = espp_view[["Periodo_natural", "espp_gain"]].rename(
-                columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain"}
+        if not compact_mode:
+            annual_table = annual_view[
+                ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
+            ].copy()
+            for col in ["pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]:
+                annual_table[col] = (annual_table[col].astype(float) * 100).round(2)
+            annual_table = apply_privacy_to_columns(annual_table, ["neto", "delta_neto_vs_anterior"])
+            st.dataframe(
+                annual_table.rename(
+                    columns={
+                        "Año": "Año",
+                        "neto": "Neto anual",
+                        "delta_neto_vs_anterior": "Delta neto vs año anterior",
+                        "pct_crecimiento_neto_yoy": "% crecimiento neto YoY",
+                        "pct_irpf_efectivo_anual": "% IRPF efectivo anual",
+                        "delta_irpf_yoy": "Delta IRPF YoY (pp)",
+                    }
+                ),
+                width="stretch",
             )
-            espp_table = apply_privacy_to_columns(espp_table, ["ESPP Gain"])
-            st.dataframe(espp_table, width="stretch")
-        else:
-            st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), width="stretch")
+            annual_csv = annual_table.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Descargar KPIs anuales (CSV)",
+                data=annual_csv,
+                file_name="kpis_anuales.csv",
+                mime="text/csv",
+            )
+
+        if not compact_mode:
+            st.subheader("ESPP Gain por mes")
+            if not espp_view.empty:
+                espp_table = espp_view[["Periodo_natural", "espp_gain"]].rename(
+                    columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain"}
+                )
+                espp_table = apply_privacy_to_columns(espp_table, ["ESPP Gain"])
+                st.dataframe(espp_table, width="stretch")
+            else:
+                st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), width="stretch")
 
         with st.expander("Detalle mensual completo"):
             detail_cols = [
@@ -588,55 +628,69 @@ if not df_nominas.empty:
                 mime="text/csv",
             )
 
-        if quality_rows:
+        if quality_rows and not compact_mode:
             with st.expander("Alertas de calidad detalladas"):
                 quality_df = pd.DataFrame(quality_rows, columns=["Periodo", "Alerta", "Detalle"])
                 st.dataframe(quality_df, width="stretch")
 
         # Calidad avanzada: outliers en SALARIO BASE frente a mediana histórica
-        with st.expander("Calidad de datos avanzada"):
-            quality_adv: list[dict[str, str]] = []
-            nom_base = nominas_view.copy()
-            nom_base["Concepto_up"] = nom_base["Concepto"].astype(str).str.upper()
-            nom_base["Importe_num"] = pd.to_numeric(
-                nom_base["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
-                errors="coerce",
-            ).fillna(0.0)
-            salario_base = (
-                nom_base[nom_base["Concepto_up"].str.contains("SALARIO BASE", na=False)]
-                .groupby(["Año", "Mes"], as_index=False)["Importe_num"]
-                .sum()
-                .sort_values(["Año", "Mes"])
-            )
-            if not salario_base.empty:
-                med = float(salario_base["Importe_num"].median())
-                if med != 0:
-                    salario_base["desv_pct"] = (salario_base["Importe_num"] - med).abs() / abs(med)
-                    outliers = salario_base[salario_base["desv_pct"] > 0.20]
-                    for _, r in outliers.iterrows():
-                        quality_adv.append(
-                            {
-                                "Periodo": f"{int(r['Año'])}-{int(r['Mes']):02d}",
-                                "Regla": "SALARIO BASE fuera de rango (>20% de mediana)",
-                                "Valor": format_eur(float(r["Importe_num"])),
-                            }
-                        )
-            if quality_adv:
-                st.dataframe(pd.DataFrame(quality_adv), width="stretch")
-            else:
-                st.info("Sin outliers detectados en SALARIO BASE con regla actual.")
+        if not compact_mode:
+            with st.expander("Calidad de datos avanzada"):
+                quality_adv: list[dict[str, str]] = []
+                nom_base = nominas_view.copy()
+                nom_base["Concepto_up"] = nom_base["Concepto"].astype(str).str.upper()
+                nom_base["Importe_num"] = pd.to_numeric(
+                    nom_base["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+                    errors="coerce",
+                ).fillna(0.0)
+                salario_base = (
+                    nom_base[nom_base["Concepto_up"].str.contains("SALARIO BASE", na=False)]
+                    .groupby(["Año", "Mes"], as_index=False)["Importe_num"]
+                    .sum()
+                    .sort_values(["Año", "Mes"])
+                )
+                if not salario_base.empty:
+                    med = float(salario_base["Importe_num"].median())
+                    if med != 0:
+                        salario_base["desv_pct"] = (salario_base["Importe_num"] - med).abs() / abs(med)
+                        outliers = salario_base[salario_base["desv_pct"] > 0.20]
+                        for _, r in outliers.iterrows():
+                            quality_adv.append(
+                                {
+                                    "Periodo": f"{int(r['Año'])}-{int(r['Mes']):02d}",
+                                    "Regla": "SALARIO BASE fuera de rango (>20% de mediana)",
+                                    "Valor": format_eur(float(r["Importe_num"])),
+                                }
+                            )
+                if quality_adv:
+                    st.dataframe(pd.DataFrame(quality_adv), width="stretch")
+                else:
+                    st.info("Sin outliers detectados en SALARIO BASE con regla actual.")
 
         # Cobertura de meses disponibles por año
-        with st.expander("Calendario de cobertura"):
-            coverage = monthly[["Año", "Mes"]].copy()
-            coverage["present"] = "OK"
-            coverage_pivot = (
-                coverage.pivot_table(index="Año", columns="Mes", values="present", aggfunc="first", fill_value="")
-                .reindex(columns=list(range(1, 13)), fill_value="")
-                .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
-                .reset_index()
-            )
-            st.dataframe(coverage_pivot, width="stretch")
+        if not compact_mode:
+            with st.expander("Calendario de cobertura"):
+                coverage = monthly[["Año", "Mes"]].copy()
+                coverage["present"] = "OK"
+                coverage_pivot = (
+                    coverage.pivot_table(index="Año", columns="Mes", values="present", aggfunc="first", fill_value="")
+                    .reindex(columns=list(range(1, 13)), fill_value="")
+                    .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
+                    .reset_index()
+                )
+                st.dataframe(coverage_pivot, width="stretch")
+
+        with st.expander("Información contextual de campos"):
+            context_rows = [
+                {"Campo": "Bruto mes/anual", "Qué representa": "Suma de devengos netos del periodo.", "Fuente": "Nominas -> Categoría/Importe"},
+                {"Campo": "Neto mes/anual", "Qué representa": "Bruto menos total a deducir.", "Fuente": "KPIs mensuales/agregación anual"},
+                {"Campo": "% IRPF mes", "Qué representa": "% de nómina informado (si existe) o ratio IRPF/Bruto.", "Fuente": "Concepto IRPF + cálculo"},
+                {"Campo": "% IRPF efectivo anual", "Qué representa": "IRPF anual / Bruto anual.", "Fuente": "Agregación anual"},
+                {"Campo": "Ingresos recibidos", "Qué representa": "Neto + especie + jubilación + netos estimados de ESPP/RSU.", "Fuente": "KPI compuesto"},
+                {"Campo": "ESPP/RSU bruto", "Qué representa": "Ganancia bruta en nómina para esos conceptos.", "Fuente": "Subcategorías Ingreso Variable"},
+                {"Campo": "ESPP/RSU neto estimado", "Qué representa": "Bruto ajustado por tipo marginal estimado interno.", "Fuente": "KPI derivado"},
+            ]
+            st.dataframe(pd.DataFrame(context_rows), width="stretch")
 
         with st.expander("Definiciones de métricas"):
             st.markdown(
