@@ -56,8 +56,8 @@ METRIC_HELP: dict[str, str] = {
     "Bruto variable anual": "Suma anual de ingresos variables brutos.",
     "Aportación empresa": "Aportación anual de la empresa al plan de pensiones.",
     "Aportación empleado": "Aportación anual del empleado al plan de pensiones.",
-    "ESPP bruto": "Ganancia bruta anual de ESPP.",
-    "RSU bruto": "Ganancia bruta anual de RSU/stock options.",
+    "ESPP": "Ganancia anual identificada como ESPP.",
+    "RSU": "Ganancia anual identificada como RSU/stock options.",
 }
 
 
@@ -385,7 +385,7 @@ if not df_nominas.empty:
         b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
         b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
 
-        block_left, block_right = st.columns([1, 1])
+        block_left, block_right = st.columns([2, 3])
         with block_left:
             st.markdown("##### Jubilación")
             jub_total = float(y["ahorro_jub_total"])
@@ -406,18 +406,24 @@ if not df_nominas.empty:
             )
         with block_right:
             st.markdown("##### ESPP y RSU")
-            v1, v2 = st.columns(2)
-            metric_with_help(v1, "ESPP bruto", show_eur(float(y["espp_gain"])))
-            metric_with_help(v2, "RSU bruto", show_eur(float(y["rsu_gain"])))
-            st.markdown("##### ESPP Gain por mes")
-            if not espp_view.empty:
-                espp_table = espp_view[["Periodo_natural", "espp_gain"]].rename(
-                    columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain"}
+            right_metrics, right_table = st.columns([1, 2])
+            with right_metrics:
+                metric_with_help(st, "ESPP", show_eur(float(y["espp_gain"])))
+                metric_with_help(st, "RSU", show_eur(float(y["rsu_gain"])))
+            with right_table:
+                st.markdown("##### ESPP y RSU por mes")
+                gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
+                    columns={
+                        "Periodo_natural": "Periodo",
+                        "espp_gain": "ESPP Gain",
+                        "rsu_gain": "RSU Gain",
+                    }
                 )
-                espp_table = apply_privacy_to_columns(espp_table, ["ESPP Gain"])
-                st.dataframe(espp_table, width="stretch")
-            else:
-                st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), width="stretch")
+                if gains_table.empty:
+                    st.dataframe(pd.DataFrame([{"Info": "Sin ESPP/RSU registrado"}]), width="stretch")
+                else:
+                    gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
+                    st.dataframe(gains_table, width="stretch")
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
