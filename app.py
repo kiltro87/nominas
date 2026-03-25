@@ -389,7 +389,7 @@ if not df_nominas.empty:
                 else:
                     for col in ["Actual", "Comparado", "Delta"]:
                         explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
-                st.dataframe(explain, width="stretch")
+                st.dataframe(zebra_styler(explain), width="stretch")
 
         annual_title = "KPIs anuales"
         if year_option == "Todos":
@@ -445,10 +445,11 @@ if not df_nominas.empty:
                 )
             else:
                 gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
-                st.dataframe(gains_table, width="stretch")
+                st.dataframe(zebra_styler(gains_table), width="stretch")
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
+            ch1, ch2 = st.columns(2)
             annual_amount_chart = annual_view[["Año", "total_devengado", "neto"]].copy()
             annual_amount_chart["ingresos_recibidos"] = (
                 annual_view["neto"]
@@ -472,19 +473,22 @@ if not df_nominas.empty:
                         "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
                     ]
                 ] = 0.0
-            st.line_chart(
-                annual_amount_chart.set_index("Año")[
-                    [
-                        "Salario Bruto",
-                        "Salario Neto",
-                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+            with ch1:
+                st.line_chart(
+                    annual_amount_chart.set_index("Año")[
+                        [
+                            "Salario Bruto",
+                            "Salario Neto",
+                            "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
+                        ]
                     ]
-                ]
-            )
+                )
             annual_pct_chart = annual_view[["Año", "pct_irpf_efectivo_anual"]].copy()
             annual_pct_chart["% IRPF efectivo anual"] = annual_pct_chart["pct_irpf_efectivo_anual"] * 100
-            st.line_chart(annual_pct_chart.set_index("Año")[["% IRPF efectivo anual"]])
+            with ch2:
+                st.line_chart(annual_pct_chart.set_index("Año")[["% IRPF efectivo anual"]])
         else:
+            ch1, ch2 = st.columns(2)
             monthly_amount_chart = monthly_view[["Periodo_natural", "total_devengado", "neto"]].copy()
             monthly_amount_chart["ingresos_recibidos"] = (
                 monthly_view["neto"]
@@ -508,13 +512,15 @@ if not df_nominas.empty:
                         "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
                     ]
                 ] = 0.0
-            draw_monthly_chart(
-                monthly_amount_chart,
-                ["Salario Bruto", "Salario Neto", "Ingresos recibidos (incluyendo Tickets, pensión y acciones)"],
-                "Evolución salarial e ingresos recibidos",
-            )
-            draw_monthly_chart(monthly_view, ["pct_irpf"], "Evolución mensual (% IRPF)", percent_scale=True)
-        with st.expander("Detalle mensual completo"):
+            with ch1:
+                draw_monthly_chart(
+                    monthly_amount_chart,
+                    ["Salario Bruto", "Salario Neto", "Ingresos recibidos (incluyendo Tickets, pensión y acciones)"],
+                    "Evolución salarial e ingresos recibidos",
+                )
+            with ch2:
+                draw_monthly_chart(monthly_view, ["pct_irpf"], "Evolución mensual (% IRPF)", percent_scale=True)
+        with st.expander("Información mensual explicada"):
             detail_cols = [
                 "Año",
                 "Mes",
@@ -593,10 +599,7 @@ if not df_nominas.empty:
                     "Beneficio en especie (€)",
                 ],
             )
-            st.dataframe(
-                detail_df,
-                width="stretch",
-            )
+            st.dataframe(zebra_styler(detail_df), width="stretch")
             detail_csv = detail_df.to_csv(index=False).encode("utf-8")
             st.download_button(
                 "Descargar detalle mensual (CSV)",
@@ -724,7 +727,7 @@ if not df_nominas.empty:
         if quality_rows:
             with st.expander("Alertas de calidad detalladas"):
                 quality_df = pd.DataFrame(quality_rows, columns=["Periodo", "Alerta", "Detalle"])
-                st.dataframe(quality_df, width="stretch")
+                st.dataframe(zebra_styler(quality_df), width="stretch")
 
         # Calidad avanzada: outliers en SALARIO BASE frente a mediana histórica
         with st.expander("Calidad de datos avanzada"):
@@ -755,7 +758,7 @@ if not df_nominas.empty:
                             }
                         )
             if quality_adv:
-                st.dataframe(pd.DataFrame(quality_adv), width="stretch")
+                st.dataframe(zebra_styler(pd.DataFrame(quality_adv)), width="stretch")
             else:
                 st.info("Sin outliers detectados en SALARIO BASE con regla actual.")
 
@@ -769,7 +772,7 @@ if not df_nominas.empty:
                 .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
                 .reset_index()
             )
-            st.dataframe(coverage_pivot, width="stretch")
+            st.dataframe(zebra_styler(coverage_pivot), width="stretch")
 
         with st.expander("Definiciones de métricas"):
             st.markdown(
