@@ -21,6 +21,18 @@ hide_amounts = st.toggle("Modo privacidad: ocultar importes", value=False)
 compact_mode = st.toggle("Modo compacto", value=False)
 
 METRIC_HELP: dict[str, str] = {
+    "Bruto": "Suma de devengos netos del periodo mostrado.",
+    "% IRPF": "Porcentaje de IRPF informado en nómina (si existe) o ratio IRPF/Bruto del periodo.",
+    "Neto": "Bruto menos total a deducir del periodo.",
+    "Ahorro fiscal": "Ingresos libres de impuestos multiplicados por tipo marginal estimado + aportación empresa a jubilación.",
+    "Ahorro jub. empresa": "Aportación de empresa al plan de pensiones en el periodo.",
+    "Ahorro jub. empleado": "Aportación del empleado al plan de pensiones en el periodo.",
+    "Ingresos libres imp.": "Importes del periodo marcados como exentos o no sujetos a IRPF.",
+    "% IRPF efectivo": "IRPF anual / Bruto anual para el año seleccionado.",
+    "IRPF medio": "Promedio mensual del % IRPF en el año mostrado.",
+    "Riqueza real": "Suma anual de riqueza real mensual (neto + componentes de largo plazo).",
+    "Ahorro jubilación": "Aportación total (empresa + empleado) a jubilación.",
+    "Bruto variable": "Suma de ingresos variables brutos del año.",
     "Bruto mes": "Suma de devengos netos del mes.",
     "% IRPF mes": "Porcentaje de IRPF informado en nómina (si existe) o ratio IRPF/Bruto del mes.",
     "Neto mes": "Bruto del mes menos total a deducir del mes.",
@@ -282,21 +294,21 @@ if not df_nominas.empty:
             st.caption(delta_label)
         c1, c2, c3, c4, c5 = st.columns(5)
         if cmp_row is not None:
-            metric_with_help(c1, "Bruto mes", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
-            metric_with_help(c2, "% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
-            metric_with_help(c3, "Neto mes", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
+            metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
+            metric_with_help(c2, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
+            metric_with_help(c3, "Neto", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
         else:
-            metric_with_help(c1, "Bruto mes", show_eur(float(m["total_devengado"])))
-            metric_with_help(c2, "% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%")
-            metric_with_help(c3, "Neto mes", show_eur(float(m["neto"])))
+            metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])))
+            metric_with_help(c2, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
+            metric_with_help(c3, "Neto", show_eur(float(m["neto"])))
         metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
         metric_with_help(c5, "Riqueza real mensual", show_eur(float(m["riqueza_real_mensual"])))
 
         c6, c7, c8, c9 = st.columns(4)
-        metric_with_help(c6, "Ahorro fiscal mes", show_eur(float(m["ahorro_fiscal"])))
-        metric_with_help(c7, "Ahorro jub. empresa mes", show_eur(float(m["ahorro_jub_empresa"])))
-        metric_with_help(c8, "Ahorro jub. empleado mes", show_eur(float(m["ahorro_jub_empleado"])))
-        metric_with_help(c9, "Ingresos libres imp. mes", show_eur(float(m["ingresos_libres_impuestos"])))
+        metric_with_help(c6, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"])))
+        metric_with_help(c7, "Ahorro jub. empresa", show_eur(float(m["ahorro_jub_empresa"])))
+        metric_with_help(c8, "Ahorro jub. empleado", show_eur(float(m["ahorro_jub_empleado"])))
+        metric_with_help(c9, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"])))
 
         if cmp_row is not None:
             with st.expander("Explicar delta (Top 5 conceptos)"):
@@ -340,19 +352,21 @@ if not df_nominas.empty:
             annual_title += " (último año disponible)"
         st.subheader(annual_title)
         y = annual_view.sort_values("Año").iloc[-1]
-        a1, a2, a3, a4, a5 = st.columns(5)
-        metric_with_help(a1, "Bruto anual", show_eur(float(y["total_devengado"])))
-        metric_with_help(a2, "% IRPF efectivo anual", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
-        metric_with_help(a3, "Neto anual", show_eur(float(y["neto"])))
-        metric_with_help(a4, "ESPP Gain anual", show_eur(float(y["espp_gain"])))
-        metric_with_help(a5, "Riqueza real anual", show_eur(float(y["riqueza_real_anual"])))
+        irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
+        a1, a2, a3, a4, a5, a6 = st.columns(6)
+        metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"])))
+        metric_with_help(a2, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
+        metric_with_help(a3, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
+        metric_with_help(a4, "Neto", show_eur(float(y["neto"])))
+        metric_with_help(a5, "ESPP Gain", show_eur(float(y["espp_gain"])))
+        metric_with_help(a6, "Riqueza real", show_eur(float(y["riqueza_real_anual"])))
 
-        a6, a7, a8, a9, a10 = st.columns(5)
-        metric_with_help(a6, "Ahorro jubilación anual", show_eur(float(y["ahorro_jub_total"])))
-        metric_with_help(a7, "Ahorro fiscal anual", show_eur(float(y["ahorro_fiscal"])))
-        metric_with_help(a8, "Consumo en especie anual", show_eur(float(y["consumo_especie"])))
-        metric_with_help(a9, "Ingresos libres imp. anual", show_eur(float(y["ingresos_libres_impuestos"])))
-        metric_with_help(a10, "Bruto variable anual", show_eur(float(y["variable_ingreso"])))
+        b1, b2, b3, b4, b5 = st.columns(5)
+        metric_with_help(b1, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
+        metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
+        metric_with_help(b3, "Consumo en especie", show_eur(float(y["consumo_especie"])))
+        metric_with_help(b4, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
+        metric_with_help(b5, "Bruto variable", show_eur(float(y["variable_ingreso"])))
 
         st.markdown("##### Jubilación, ESPP y RSU")
         grp1, grp2, grp3 = st.columns(3)
