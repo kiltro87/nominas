@@ -224,6 +224,7 @@ if not df_nominas.empty:
             monthly_view = monthly[monthly["Año"] == selected_year].copy()
             annual_view = annual[annual["Año"] == selected_year].copy()
             espp_view = espp_months[espp_months["Año"] == selected_year].copy()
+        monthly_year_scope = monthly_view.copy()
 
         period_options = ["Todos"] + monthly_view["Periodo"].drop_duplicates().sort_values().tolist()
         with filter_col2:
@@ -256,8 +257,8 @@ if not df_nominas.empty:
         if (monthly_view["pct_irpf"] > 0.60).any():
             high_periods = monthly_view.loc[monthly_view["pct_irpf"] > 0.60, "Periodo_natural"].tolist()
             alertas.append(f"% IRPF mensual > 60% en: {', '.join(high_periods)}")
-        if year_option != "Todos":
-            months_present = set(monthly_view["Mes"].astype(int).tolist())
+        if year_option != "Todos" and period_option == "Todos":
+            months_present = set(monthly_year_scope["Mes"].astype(int).tolist())
             expected = set(range(1, 13))
             missing = sorted(expected - months_present)
             if missing:
@@ -391,8 +392,6 @@ if not df_nominas.empty:
             jub_total = float(y["ahorro_jub_total"])
             jub_empresa = float(y["ahorro_jub_empresa"])
             jub_empleado = float(y["ahorro_jub_empleado"])
-            empresa_ratio = (jub_empresa / jub_total) if jub_total > 0 else 0.0
-            empleado_ratio = (jub_empleado / jub_total) if jub_total > 0 else 0.0
 
             total_col, split_col = st.columns([1.2, 1.0])
             with total_col:
@@ -400,10 +399,30 @@ if not df_nominas.empty:
             with split_col:
                 metric_with_help(st, "Aportación empresa", show_eur(jub_empresa))
                 metric_with_help(st, "Aportación empleado", show_eur(jub_empleado))
-            st.progress(max(0.0, min(1.0, empresa_ratio)))
-            st.caption(
-                f"Reparto: Empresa {empresa_ratio * 100:.1f}% | Empleado {empleado_ratio * 100:.1f}%"
+            pie_data = pd.DataFrame(
+                [
+                    {"Origen": "Empresa", "Importe": jub_empresa},
+                    {"Origen": "Empleado", "Importe": jub_empleado},
+                ]
             )
+            pie_data = pie_data[pie_data["Importe"] > 0].copy()
+            if pie_data.empty:
+                st.caption("Sin aportaciones de jubilación en el periodo seleccionado.")
+            else:
+                pie_chart = (
+                    alt.Chart(pie_data)
+                    .mark_arc(innerRadius=50)
+                    .encode(
+                        theta=alt.Theta("Importe:Q"),
+                        color=alt.Color("Origen:N", title="Componente"),
+                        tooltip=[
+                            alt.Tooltip("Origen:N", title="Componente"),
+                            alt.Tooltip("Importe:Q", title="Importe", format=",.2f"),
+                        ],
+                    )
+                    .properties(height=220)
+                )
+                st.altair_chart(pie_chart, use_container_width=True)
         with block_right:
             st.markdown("##### ESPP y RSU")
             right_metrics, right_table = st.columns([1, 2])
@@ -419,6 +438,10 @@ if not df_nominas.empty:
                         "rsu_gain": "RSU Gain",
                     }
                 )
+                gains_table = gains_table[
+                    (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
+                    | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
+                ].reset_index(drop=True)
                 if gains_table.empty:
                     st.dataframe(pd.DataFrame([{"Info": "Sin ESPP/RSU registrado"}]), width="stretch")
                 else:
