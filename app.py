@@ -361,10 +361,11 @@ if not df_nominas.empty:
         metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
         metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
 
-        b1, b2, b3 = st.columns(3)
+        b1, b2, b3, b4 = st.columns(4)
         metric_with_help(b1, "Riqueza real", show_eur(float(y["riqueza_real_anual"])))
         metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
         metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
+        metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
 
         st.markdown("##### Jubilación, ESPP y RSU")
         grp1, grp2, grp3 = st.columns([1.15, 1.15, 0.9])
