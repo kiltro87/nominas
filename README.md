@@ -7,7 +7,9 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 - `extractor.py`: extracción PDF (multi página) + clasificación de conceptos + validación de neto.
 - `drive_ingestor.py`: ingesta automática de Drive -> Sheets (recursiva en subcarpetas), con control de duplicados.
 - `kpi_builder.py`: cálculo de métricas mensuales, anuales y comparativas YoY.
-- `app.py`: dashboard Streamlit de análisis de KPIs.
+- `app.py`: orquestador Streamlit (filtros + flujo principal).
+- `nominas/ui/*`: render de tarjetas, tablas, gráficas y secciones de calidad.
+- `nominas/services/*`: preparación de dataframes para vistas y alertas.
 - `subcategorias.json`: catálogo editable de matching de conceptos -> subcategorías.
 
 ## 1) Instalación
