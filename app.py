@@ -45,14 +45,14 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div > div {
     padding: 0.9rem 1rem !important;
 }
 
-/* Metric cards inside sections */
+/* Keep KPI blocks clean: no nested metric boxes */
 div[data-testid="stMetric"],
 div[data-testid="stMetric"] > div,
 div[data-testid="stMetric"] > div > div {
-    background: var(--metric-bg) !important;
-    border: 1px solid var(--metric-border) !important;
-    border-radius: 10px !important;
-    padding: 0.45rem 0.55rem !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
 }
 div[data-testid="stMetricLabel"] p {
     color: var(--muted) !important;
