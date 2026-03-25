@@ -135,7 +135,7 @@ if not df_nominas.empty:
         espp_months = espp_months.sort_values(["Año", "Mes"]).reset_index(drop=True)
 
         available_years = sorted(int(y) for y in monthly["Año"].unique())
-        filter_col1, filter_col2 = st.columns(2)
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
         with filter_col1:
             year_option = st.selectbox(
                 "Filtro de año",
@@ -161,6 +161,13 @@ if not df_nominas.empty:
                 index=0,
                 help="Opcional: filtra un mes concreto dentro del año seleccionado.",
             )
+        with filter_col3:
+            compare_mode = st.selectbox(
+                "Comparar contra",
+                options=["Sin comparación", "Mes anterior", "Mismo mes año anterior"],
+                index=0,
+                help="Aplica al bloque de KPIs mensuales.",
+            )
         if period_option != "Todos":
             monthly_view = monthly_view[monthly_view["Periodo"] == period_option].copy()
             espp_view = espp_view[espp_view["Periodo"] == period_option].copy()
@@ -185,6 +192,13 @@ if not df_nominas.empty:
                 alertas.append(f"Faltan meses en el año seleccionado: {', '.join(str(m) for m in missing)}")
         if alertas:
             st.warning(" | ".join(alertas))
+        quality_rows: list[dict[str, str]] = []
+        for _, row in monthly_view.iterrows():
+            periodo = str(row["Periodo_natural"])
+            if float(row["neto"]) < 0:
+                quality_rows.append({"Periodo": periodo, "Alerta": "Neto mensual negativo", "Detalle": format_eur(float(row["neto"]))})
+            if float(row["pct_irpf"]) > 0.60:
+                quality_rows.append({"Periodo": periodo, "Alerta": "% IRPF mensual > 60%", "Detalle": f"{float(row['pct_irpf']) * 100:.2f}%"})
 
         nominas_view = df_nominas.copy()
         nominas_view["Año"] = pd.to_numeric(nominas_view["Año"], errors="coerce")
@@ -206,10 +220,31 @@ if not df_nominas.empty:
             monthly_title += " (último mes disponible)"
         st.subheader(monthly_title)
         m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
+        # Comparador de periodos para tarjetas mensuales
+        monthly_all = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
+        cur_year, cur_month = int(m["Año"]), int(m["Mes"])
+        cmp_row = None
+        if compare_mode == "Mes anterior":
+            prev = monthly_all[(monthly_all["Año"] < cur_year) | ((monthly_all["Año"] == cur_year) & (monthly_all["Mes"] < cur_month))]
+            if not prev.empty:
+                cmp_row = prev.iloc[-1]
+        elif compare_mode == "Mismo mes año anterior":
+            prev = monthly_all[(monthly_all["Año"] == cur_year - 1) & (monthly_all["Mes"] == cur_month)]
+            if not prev.empty:
+                cmp_row = prev.iloc[-1]
+        delta_label = None
+        if cmp_row is not None:
+            delta_label = f"vs {cmp_row['Periodo_natural']}"
+            st.caption(delta_label)
         c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Bruto mes", show_eur(float(m["total_devengado"])))
-        c2.metric("% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%")
-        c3.metric("Neto mes", show_eur(float(m["neto"])))
+        if cmp_row is not None:
+            c1.metric("Bruto mes", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
+            c2.metric("% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
+            c3.metric("Neto mes", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
+        else:
+            c1.metric("Bruto mes", show_eur(float(m["total_devengado"])))
+            c2.metric("% IRPF mes", f"{float(m['pct_irpf']) * 100:.2f}%")
+            c3.metric("Neto mes", show_eur(float(m["neto"])))
         c4.metric("Consumo en especie", show_eur(float(m["consumo_especie"])))
         c5.metric("Riqueza real mensual", show_eur(float(m["riqueza_real_mensual"])))
 
@@ -340,6 +375,13 @@ if not df_nominas.empty:
             ),
             width="stretch",
         )
+        annual_csv = annual_table.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Descargar KPIs anuales (CSV)",
+            data=annual_csv,
+            file_name="kpis_anuales.csv",
+            mime="text/csv",
+        )
 
         st.subheader("ESPP Gain por mes")
         if not espp_view.empty:
@@ -434,13 +476,20 @@ if not df_nominas.empty:
                 detail_df,
                 width="stretch",
             )
+            detail_csv = detail_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Descargar detalle mensual (CSV)",
+                data=detail_csv,
+                file_name="detalle_mensual.csv",
+                mime="text/csv",
+            )
 
         with st.expander("Desglose mensual"):
             breakdown = nominas_view.copy()
             breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
             irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
             breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
-            ctrl1, ctrl2, ctrl3 = st.columns(3)
+            ctrl1, ctrl2, ctrl3, ctrl4, ctrl5 = st.columns(5)
             with ctrl1:
                 grouping_mode = st.selectbox(
                     "Agrupar por",
@@ -457,6 +506,10 @@ if not df_nominas.empty:
                 ).strip()
             with ctrl3:
                 only_changes = st.checkbox("Solo con cambios (Δ abs != 0)", value=False, key="breakdown_only_changes")
+            with ctrl4:
+                hide_zero_rows = st.checkbox("Ocultar filas en cero", value=True, key="breakdown_hide_zeros")
+            with ctrl5:
+                top_n = st.number_input("Top filas", min_value=10, max_value=5000, value=200, step=10, key="breakdown_top_n")
             breakdown["Importe_num"] = pd.to_numeric(
                 breakdown["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
                 errors="coerce",
@@ -509,6 +562,12 @@ if not df_nominas.empty:
                 pivot = pivot[
                     pivot[index_col_name].astype(str).str.contains(re.escape(concept_filter), case=False, na=False)
                 ].copy()
+            if hide_zero_rows:
+                numeric_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
+                if numeric_cols:
+                    non_zero_mask = pivot[numeric_cols].fillna(0.0).abs().sum(axis=1) != 0
+                    pivot = pivot[non_zero_mask].copy()
+            pivot = pivot.head(int(top_n))
 
             if hide_amounts:
                 for col in [c for c in pivot.columns if c != index_col_name]:
@@ -528,6 +587,56 @@ if not df_nominas.empty:
                 file_name="desglose_mensual.csv",
                 mime="text/csv",
             )
+
+        if quality_rows:
+            with st.expander("Alertas de calidad detalladas"):
+                quality_df = pd.DataFrame(quality_rows, columns=["Periodo", "Alerta", "Detalle"])
+                st.dataframe(quality_df, width="stretch")
+
+        # Calidad avanzada: outliers en SALARIO BASE frente a mediana histórica
+        with st.expander("Calidad de datos avanzada"):
+            quality_adv: list[dict[str, str]] = []
+            nom_base = nominas_view.copy()
+            nom_base["Concepto_up"] = nom_base["Concepto"].astype(str).str.upper()
+            nom_base["Importe_num"] = pd.to_numeric(
+                nom_base["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
+                errors="coerce",
+            ).fillna(0.0)
+            salario_base = (
+                nom_base[nom_base["Concepto_up"].str.contains("SALARIO BASE", na=False)]
+                .groupby(["Año", "Mes"], as_index=False)["Importe_num"]
+                .sum()
+                .sort_values(["Año", "Mes"])
+            )
+            if not salario_base.empty:
+                med = float(salario_base["Importe_num"].median())
+                if med != 0:
+                    salario_base["desv_pct"] = (salario_base["Importe_num"] - med).abs() / abs(med)
+                    outliers = salario_base[salario_base["desv_pct"] > 0.20]
+                    for _, r in outliers.iterrows():
+                        quality_adv.append(
+                            {
+                                "Periodo": f"{int(r['Año'])}-{int(r['Mes']):02d}",
+                                "Regla": "SALARIO BASE fuera de rango (>20% de mediana)",
+                                "Valor": format_eur(float(r["Importe_num"])),
+                            }
+                        )
+            if quality_adv:
+                st.dataframe(pd.DataFrame(quality_adv), width="stretch")
+            else:
+                st.info("Sin outliers detectados en SALARIO BASE con regla actual.")
+
+        # Cobertura de meses disponibles por año
+        with st.expander("Calendario de cobertura"):
+            coverage = monthly[["Año", "Mes"]].copy()
+            coverage["present"] = "OK"
+            coverage_pivot = (
+                coverage.pivot_table(index="Año", columns="Mes", values="present", aggfunc="first", fill_value="")
+                .reindex(columns=list(range(1, 13)), fill_value="")
+                .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
+                .reset_index()
+            )
+            st.dataframe(coverage_pivot, width="stretch")
 
         with st.expander("Definiciones de métricas"):
             st.markdown(
