@@ -411,20 +411,17 @@ if not df_nominas.empty:
         b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
         b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
 
-        block_left, block_right = st.columns([2, 3])
+        block_left, block_right = st.columns([3, 2])
         with block_left:
             st.markdown("##### Jubilación")
             jub_total = float(y["ahorro_jub_total"])
             jub_empresa = float(y["ahorro_jub_empresa"])
             jub_empleado = float(y["ahorro_jub_empleado"])
-            empresa_pct = (jub_empresa / jub_total * 100.0) if jub_total > 0 else 0.0
-            empleado_pct = (jub_empleado / jub_total * 100.0) if jub_total > 0 else 0.0
 
             j1, j2, j3 = st.columns(3)
             metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
             metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
             metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
-            st.caption(f"Reparto jubilación: Empresa {empresa_pct:.1f}% | Empleado {empleado_pct:.1f}%")
         with block_right:
             st.markdown("##### ESPP y RSU")
             rm1, rm2 = st.columns(2)
