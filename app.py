@@ -440,6 +440,23 @@ if not df_nominas.empty:
             breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
             irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\\s+I\\.?R\\.?P\\.?F\\.?", regex=True)
             breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
+            ctrl1, ctrl2, ctrl3 = st.columns(3)
+            with ctrl1:
+                grouping_mode = st.selectbox(
+                    "Agrupar por",
+                    options=["Concepto", "Subcategoría"],
+                    index=0,
+                    key="breakdown_grouping_mode",
+                )
+            with ctrl2:
+                concept_filter = st.text_input(
+                    "Buscar texto",
+                    value="",
+                    key="breakdown_text_filter",
+                    placeholder="Ej. IRPF, ESPP, SALARIO...",
+                ).strip()
+            with ctrl3:
+                only_changes = st.checkbox("Solo con cambios (Δ abs != 0)", value=False, key="breakdown_only_changes")
             breakdown["Importe_num"] = pd.to_numeric(
                 breakdown["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
                 errors="coerce",
@@ -447,6 +464,12 @@ if not df_nominas.empty:
             breakdown["Periodo"] = (
                 breakdown["Año"].astype(int).astype(str) + "-" + breakdown["Mes"].astype(int).astype(str).str.zfill(2)
             )
+            if grouping_mode == "Subcategoría":
+                breakdown["Clave_desglose"] = breakdown["Subcategoría"].astype(str)
+                index_col_name = "Subcategoría"
+            else:
+                breakdown["Clave_desglose"] = breakdown["Concepto_agrupado"]
+                index_col_name = "Concepto"
 
             if period_option == "Todos":
                 month_order = monthly_view["Periodo"].drop_duplicates().tolist()
@@ -455,7 +478,7 @@ if not df_nominas.empty:
 
             pivot = (
                 breakdown.pivot_table(
-                    index="Concepto_agrupado",
+                    index="Clave_desglose",
                     columns="Periodo",
                     values="Importe_num",
                     aggfunc="sum",
@@ -464,7 +487,7 @@ if not df_nominas.empty:
                 .reindex(columns=month_order, fill_value=0.0)
                 .reset_index()
             )
-            pivot = pivot.rename(columns={"Concepto_agrupado": "Concepto"})
+            pivot = pivot.rename(columns={"Clave_desglose": index_col_name})
 
             if period_option == "Todos" and len(month_order) >= 2:
                 latest = month_order[-1]
@@ -473,12 +496,22 @@ if not df_nominas.empty:
                 pivot["Δ %"] = pivot.apply(
                     lambda r: ((r[latest] - r[prev]) / r[prev] * 100.0) if float(r[prev]) != 0 else 0.0, axis=1
                 )
+                if only_changes:
+                    pivot = pivot[pivot["Δ abs"] != 0].copy()
+                pivot = pivot.sort_values(by="Δ abs", ascending=False, key=lambda s: s.abs()).reset_index(drop=True)
+            elif concept_filter:
+                pivot = pivot.copy()
+
+            if concept_filter:
+                pivot = pivot[
+                    pivot[index_col_name].astype(str).str.contains(re.escape(concept_filter), case=False, na=False)
+                ].copy()
 
             if hide_amounts:
-                for col in [c for c in pivot.columns if c != "Concepto"]:
+                for col in [c for c in pivot.columns if c != index_col_name]:
                     pivot[col] = "••••••"
             else:
-                eur_cols = [c for c in pivot.columns if c not in {"Concepto", "Δ %"}]
+                eur_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
                 for col in eur_cols:
                     pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
                 if "Δ %" in pivot.columns:
