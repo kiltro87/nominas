@@ -3,9 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -64,7 +64,7 @@ def build_drive_service(credentials_path: str):
     return build("drive", "v3", credentials=creds)
 
 
-def list_pdf_files(drive_service, folder_id: str) -> List[Dict[str, Any]]:
+def list_pdf_files(drive_service, folder_id: str, modified_after: Optional[str] = None) -> List[Dict[str, Any]]:
     folders_to_visit: List[tuple[str, str]] = [(folder_id, "")]
     visited_folders: Set[str] = set()
     files: List[Dict[str, Any]] = []
@@ -77,7 +77,16 @@ def list_pdf_files(drive_service, folder_id: str) -> List[Dict[str, Any]]:
 
         page_token = None
         while True:
-            query = f"'{current_folder}' in parents and trashed=false"
+            if modified_after:
+                query = (
+                    f"'{current_folder}' in parents and trashed=false and "
+                    "("
+                    "mimeType='application/vnd.google-apps.folder' or "
+                    f"(mimeType='application/pdf' and modifiedTime > '{modified_after}')"
+                    ")"
+                )
+            else:
+                query = f"'{current_folder}' in parents and trashed=false"
             response = (
                 drive_service.files()
                 .list(
@@ -201,9 +210,38 @@ def _extract_processed_registry(rows: List[List[str]]) -> Tuple[Set[str], Set[st
     return processed_ids, processed_md5
 
 
-def get_processed_registry(sheets: SheetsClient) -> Tuple[Set[str], Set[str]]:
+def _compute_modified_after(rows: List[List[str]], lookback_hours: int = 24) -> Optional[str]:
+    if len(rows) <= 1:
+        return None
+    header = rows[0]
+    if "processed_at_utc" not in header:
+        return None
+    idx_ts = header.index("processed_at_utc")
+    latest: Optional[datetime] = None
+    for r in rows[1:]:
+        if len(r) <= idx_ts or not r[idx_ts]:
+            continue
+        raw = str(r[idx_ts]).strip()
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.astimezone(timezone.utc)
+        if latest is None or parsed > latest:
+            latest = parsed
+    if latest is None:
+        return None
+    cutoff = latest - timedelta(hours=lookback_hours)
+    return cutoff.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def get_processing_state(sheets: SheetsClient) -> Tuple[Set[str], Set[str], Optional[str]]:
     rows = sheets.get_all_values(CONTROL_SHEET)
-    return _extract_processed_registry(rows)
+    processed_ids, processed_md5 = _extract_processed_registry(rows)
+    modified_after = _compute_modified_after(rows)
+    return processed_ids, processed_md5, modified_after
 
 
 def to_nominas_rows(sheet_rows: List[Dict[str, Any]], file_id: str, file_name: str) -> List[List[Any]]:
@@ -252,8 +290,8 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
     ensure_header(sheets, CONTROL_SHEET, CONTROL_HEADER)
     rules_version = get_subcategory_rules_version()
 
-    processed_ids, processed_md5 = get_processed_registry(sheets)
-    files = list_pdf_files(drive, folder_id)
+    processed_ids, processed_md5, modified_after = get_processing_state(sheets)
+    files = list_pdf_files(drive, folder_id, modified_after=modified_after)
 
     processed = 0
     skipped = 0
@@ -348,6 +386,7 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
         "skipped_already_processed": skipped,
         "errors": errors,
         "total_drive_files_seen": len(files),
+        "scan_modified_after": modified_after,
         "rules_version": rules_version,
         "details": details,
     }

@@ -59,6 +59,7 @@ python3 drive_ingestor.py --config config.json --limit 5
   - file_id, file_name, md5_drive, source_folder_breadcrumb, renamed_to, target_folder_breadcrumb, rules_version, processed_at_utc, status, error
 
 `Control` evita reprocesar el mismo archivo por `file_id` y también por `md5_drive` (deduplicación lógica por contenido).
+La ingesta también acota la búsqueda por `modifiedTime` (con margen de seguridad) usando la última ejecución registrada en `Control`.
 
 ## 5) Renombrado y organización automática en Drive
 
