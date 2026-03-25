@@ -40,6 +40,7 @@ div[data-testid="stVerticalBlockBorderWrapper"],
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
     background: var(--m3-surface-container) !important;
     border: 1px solid var(--m3-outline-variant) !important;
+    border-left: 4px solid #93c5fd !important;
     border-radius: 18px !important;
     box-shadow: var(--m3-shadow) !important;
 }
@@ -67,6 +68,7 @@ div[data-testid="stMetricValue"] {
 /* Headings and section emphasis */
 h3, h4, h5 {
     color: var(--m3-on-primary-container) !important;
+    font-weight: 700 !important;
 }
 
 /* Better spacing between column blocks */
@@ -78,22 +80,28 @@ div[data-testid="stHorizontalBlock"] {
 div[data-baseweb="select"] > div,
 div[data-baseweb="input"] > div {
     border-radius: 14px !important;
-    border: 1px solid var(--m3-outline) !important;
+    border: 1px solid #bfdbfe !important;
     background: var(--m3-surface) !important;
+}
+div[data-baseweb="select"] > div:focus-within,
+div[data-baseweb="input"] > div:focus-within {
+    border-color: var(--m3-primary) !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.20) !important;
 }
 
 /* Expander styling */
 details {
-    background: var(--m3-surface) !important;
-    border: 1px solid var(--m3-outline-variant) !important;
+    background: #f8fbff !important;
+    border: 1px solid #dbeafe !important;
     border-radius: 14px !important;
     padding: 0.2rem 0.4rem !important;
 }
 
 /* Table header tint */
 div[data-testid="stDataFrame"] thead tr th {
-    background: var(--m3-secondary-container) !important;
-    color: var(--m3-on-primary-container) !important;
+    background: #dbeafe !important;
+    color: #1e3a8a !important;
+    font-weight: 700 !important;
 }
 
 /* Responsive layout: allow columns to wrap */
