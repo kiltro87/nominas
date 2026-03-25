@@ -33,13 +33,12 @@ METRIC_HELP: dict[str, str] = {
     "Ingresos libres imp.": "Importes del periodo marcados como exentos o no sujetos a IRPF.",
     "% IRPF efectivo": "IRPF anual / Bruto anual para el año seleccionado.",
     "IRPF medio": "Promedio mensual del % IRPF en el año mostrado.",
-    "Riqueza real": "Suma anual de riqueza real mensual (neto + componentes de largo plazo).",
+    "Ingresos totales": "Neto + aportacion empresa a jubilacion + netos estimados de RSU y ESPP.",
     "Ahorro jubilación": "Aportación total (empresa + empleado) a jubilación.",
     "Bruto mes": "Suma de devengos netos del mes.",
     "% IRPF mes": "Porcentaje de IRPF informado en nómina (si existe) o ratio IRPF/Bruto del mes.",
     "Neto mes": "Bruto del mes menos total a deducir del mes.",
     "Consumo en especie": "Consumo asociado a conceptos en especie (tickets, seguros, fitness, etc.).",
-    "Riqueza real mensual": "Neto + aportación empresa a jubilación + netos estimados de RSU y ESPP.",
     "Ahorro fiscal mes": "Ingresos libres de impuestos multiplicados por tipo marginal estimado + aportación empresa a jubilación.",
     "Ahorro jub. empresa mes": "Aportación de empresa al plan de pensiones en el mes.",
     "Ahorro jub. empleado mes": "Aportación del empleado al plan de pensiones en el mes.",
@@ -48,7 +47,6 @@ METRIC_HELP: dict[str, str] = {
     "% IRPF efectivo anual": "IRPF anual / Bruto anual.",
     "Neto anual": "Bruto anual menos total anual a deducir.",
     "ESPP Gain anual": "Ganancia bruta anual identificada como ESPP.",
-    "Riqueza real anual": "Suma anual de riqueza real mensual.",
     "Ahorro jubilación anual": "Aportación anual total (empresa + empleado) a jubilación.",
     "Ahorro fiscal anual": "Suma anual del ahorro fiscal estimado.",
     "Consumo en especie anual": "Suma anual del consumo en especie.",
@@ -319,7 +317,7 @@ if not df_nominas.empty:
             metric_with_help(c2, "Neto", show_eur(float(m["neto"])))
             metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
         metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
-        metric_with_help(c5, "Riqueza real mensual", show_eur(float(m["riqueza_real_mensual"])))
+        metric_with_help(c5, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"])))
 
         ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
         c6, c7, c8, c9, c10 = st.columns(5)
@@ -377,7 +375,7 @@ if not df_nominas.empty:
         metric_with_help(a2, "Neto", show_eur(float(y["neto"])))
         metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
         metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
-        metric_with_help(a5, "Riqueza real", show_eur(float(y["riqueza_real_anual"])))
+        metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"])))
 
         b1, b2, b3, b4, b5 = st.columns(5)
         metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
@@ -392,6 +390,8 @@ if not df_nominas.empty:
             jub_total = float(y["ahorro_jub_total"])
             jub_empresa = float(y["ahorro_jub_empresa"])
             jub_empleado = float(y["ahorro_jub_empleado"])
+            empresa_pct = (jub_empresa / jub_total * 100.0) if jub_total > 0 else 0.0
+            empleado_pct = (jub_empleado / jub_total * 100.0) if jub_total > 0 else 0.0
 
             total_col, split_col = st.columns([1.2, 1.0])
             with total_col:
@@ -399,30 +399,19 @@ if not df_nominas.empty:
             with split_col:
                 metric_with_help(st, "Aportación empresa", show_eur(jub_empresa))
                 metric_with_help(st, "Aportación empleado", show_eur(jub_empleado))
-            pie_data = pd.DataFrame(
+            split_df = pd.DataFrame(
                 [
-                    {"Origen": "Empresa", "Importe": jub_empresa},
-                    {"Origen": "Empleado", "Importe": jub_empleado},
+                    {"Componente": "Empresa", "Importe": jub_empresa, "%": empresa_pct},
+                    {"Componente": "Empleado", "Importe": jub_empleado, "%": empleado_pct},
                 ]
             )
-            pie_data = pie_data[pie_data["Importe"] > 0].copy()
-            if pie_data.empty:
-                st.caption("Sin aportaciones de jubilación en el periodo seleccionado.")
+            if hide_amounts:
+                split_df["Importe"] = "••••••"
+                split_df["%"] = split_df["%"].map(lambda x: f"{x:.1f}%")
             else:
-                pie_chart = (
-                    alt.Chart(pie_data)
-                    .mark_arc(innerRadius=50)
-                    .encode(
-                        theta=alt.Theta("Importe:Q"),
-                        color=alt.Color("Origen:N", title="Componente"),
-                        tooltip=[
-                            alt.Tooltip("Origen:N", title="Componente"),
-                            alt.Tooltip("Importe:Q", title="Importe", format=",.2f"),
-                        ],
-                    )
-                    .properties(height=220)
-                )
-                st.altair_chart(pie_chart, use_container_width=True)
+                split_df["Importe"] = split_df["Importe"].map(lambda x: format_eur(float(x)))
+                split_df["%"] = split_df["%"].map(lambda x: f"{x:.1f}%")
+            st.dataframe(split_df, width="stretch")
         with block_right:
             st.markdown("##### ESPP y RSU")
             right_metrics, right_table = st.columns([1, 2])
@@ -551,7 +540,7 @@ if not df_nominas.empty:
                         "irpf_importe": "IRPF (€)",
                         "ss_importe": "Seguridad Social (€)",
                         "ahorro_fiscal": "Ahorro fiscal (€)",
-                        "riqueza_real_mensual": "Riqueza real mensual (€)",
+                        "riqueza_real_mensual": "Ingresos totales (€)",
                         "ahorro_jub_empresa": "Ahorro jub. empresa (€)",
                         "ahorro_jub_empleado": "Ahorro jub. empleado (€)",
                         "ahorro_jub_total": "Ahorro jubilación total (€)",
@@ -580,7 +569,7 @@ if not df_nominas.empty:
                     "IRPF (€)",
                     "Seguridad Social (€)",
                     "Ahorro fiscal (€)",
-                    "Riqueza real mensual (€)",
+                    "Ingresos totales (€)",
                     "Ahorro jub. empresa (€)",
                     "Ahorro jub. empleado (€)",
                     "Ahorro jubilación total (€)",
@@ -763,7 +752,7 @@ if not df_nominas.empty:
         with st.expander("Definiciones de métricas"):
             st.markdown(
                 """
-- `Riqueza real mensual = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
+- `Ingresos totales = neto + ahorro_jub_empresa + rsu_neto_estimado + espp_neto_estimado`
 - `% IRPF mensual = porcentaje informado en nómina (ej. 33,17%) si está disponible; si no, aproximación por ratio`
 - `Ahorro fiscal = ingresos_libres_impuestos * tipo marginal estimado (interno) + ahorro_jub_empresa`
 - `Ingresos recibidos = neto + consumo_especie + ahorro_jub_total + espp_neto_estimado + rsu_neto_estimado`
