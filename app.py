@@ -84,6 +84,9 @@ def draw_monthly_chart(df: pd.DataFrame, y_columns: list[str], title: str, perce
         var_name="Métrica",
         value_name="Valor",
     )
+    if percent_scale:
+        metric_name_map = {"pct_irpf": "% IRPF"}
+        long_df["Métrica"] = long_df["Métrica"].map(lambda x: metric_name_map.get(x, x))
     order = chart_df["Periodo_natural"].tolist()
     chart = (
         alt.Chart(long_df)
@@ -352,33 +355,30 @@ if not df_nominas.empty:
         st.subheader(annual_title)
         y = annual_view.sort_values("Año").iloc[-1]
         irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
-        a1, a2, a3, a4, a5, a6 = st.columns(6)
+        a1, a2, a3, a4, a5 = st.columns(5)
         metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"])))
         metric_with_help(a2, "Neto", show_eur(float(y["neto"])))
         metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
         metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
         metric_with_help(a5, "Riqueza real", show_eur(float(y["riqueza_real_anual"])))
-        metric_with_help(a6, "Consumo en especie", show_eur(float(y["consumo_especie"])))
 
-        b1, b2, b3 = st.columns(3)
-        metric_with_help(b1, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
+        b1, b2 = st.columns(2)
+        metric_with_help(b1, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
         metric_with_help(b2, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
-        metric_with_help(b3, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
 
         st.markdown("##### Jubilación, ESPP y RSU")
         grp1, grp2, grp3 = st.columns(3)
         with grp1:
             st.caption("Jubilación")
+            metric_with_help(st, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
+        with grp2:
+            st.caption("Aportaciones")
             metric_with_help(st, "Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
             metric_with_help(st, "Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
-        with grp2:
-            st.caption("ESPP")
-            metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
-            metric_with_help(st, "ESPP neto estimado", show_eur(float(y["espp_neto_estimado"])))
         with grp3:
-            st.caption("RSU")
+            st.caption("Variable (bruto)")
+            metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
             metric_with_help(st, "RSU bruto", show_eur(float(y["rsu_gain"])))
-            metric_with_help(st, "RSU neto estimado", show_eur(float(y["rsu_neto_estimado"])))
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
@@ -447,7 +447,7 @@ if not df_nominas.empty:
                 ["Salario Bruto", "Salario Neto", "Ingresos recibidos (incluyendo Tickets, pensión y acciones)"],
                 "Evolución salarial e ingresos recibidos",
             )
-            draw_monthly_chart(monthly_view, ["pct_irpf", "pct_ss"], "Evolución mensual (% IRPF y % SS)", percent_scale=True)
+            draw_monthly_chart(monthly_view, ["pct_irpf"], "Evolución mensual (% IRPF)", percent_scale=True)
         if not compact_mode:
             annual_table = annual_view[
                 ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
