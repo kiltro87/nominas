@@ -438,7 +438,7 @@ if not df_nominas.empty:
         with st.expander("Desglose mensual"):
             breakdown = nominas_view.copy()
             breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
-            irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\\s+I\\.?R\\.?P\\.?F\\.?", regex=True)
+            irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
             breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
             ctrl1, ctrl2, ctrl3 = st.columns(3)
             with ctrl1:
@@ -499,8 +499,11 @@ if not df_nominas.empty:
                 if only_changes:
                     pivot = pivot[pivot["Δ abs"] != 0].copy()
                 pivot = pivot.sort_values(by="Δ abs", ascending=False, key=lambda s: s.abs()).reset_index(drop=True)
-            elif concept_filter:
-                pivot = pivot.copy()
+            else:
+                value_cols = [c for c in pivot.columns if c != index_col_name]
+                if value_cols:
+                    pivot["_sort_abs"] = pivot[value_cols].abs().sum(axis=1)
+                    pivot = pivot.sort_values("_sort_abs", ascending=False).drop(columns=["_sort_abs"]).reset_index(drop=True)
 
             if concept_filter:
                 pivot = pivot[
