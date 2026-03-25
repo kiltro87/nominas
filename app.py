@@ -393,25 +393,11 @@ if not df_nominas.empty:
             empresa_pct = (jub_empresa / jub_total * 100.0) if jub_total > 0 else 0.0
             empleado_pct = (jub_empleado / jub_total * 100.0) if jub_total > 0 else 0.0
 
-            total_col, split_col = st.columns([1.2, 1.0])
-            with total_col:
-                metric_with_help(st, "Ahorro jubilación", show_eur(jub_total))
-            with split_col:
-                metric_with_help(st, "Aportación empresa", show_eur(jub_empresa))
-                metric_with_help(st, "Aportación empleado", show_eur(jub_empleado))
-            split_df = pd.DataFrame(
-                [
-                    {"Componente": "Empresa", "Importe": jub_empresa, "%": empresa_pct},
-                    {"Componente": "Empleado", "Importe": jub_empleado, "%": empleado_pct},
-                ]
-            )
-            if hide_amounts:
-                split_df["Importe"] = "••••••"
-                split_df["%"] = split_df["%"].map(lambda x: f"{x:.1f}%")
-            else:
-                split_df["Importe"] = split_df["Importe"].map(lambda x: format_eur(float(x)))
-                split_df["%"] = split_df["%"].map(lambda x: f"{x:.1f}%")
-            st.dataframe(split_df, width="stretch")
+            j1, j2, j3 = st.columns(3)
+            metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
+            metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
+            metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
+            st.caption(f"Reparto jubilación: Empresa {empresa_pct:.1f}% | Empleado {empleado_pct:.1f}%")
         with block_right:
             st.markdown("##### ESPP y RSU")
             right_metrics, right_table = st.columns([1, 2])
