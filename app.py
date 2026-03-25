@@ -388,12 +388,29 @@ if not df_nominas.empty:
         block_left, block_right = st.columns([2, 1])
         with block_left:
             st.markdown("##### Jubilación, ESPP y RSU")
-            j1, j2, j3, j4, j5 = st.columns(5)
-            j1.metric("Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
-            j2.metric("Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
-            j3.metric("Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
-            j4.metric("ESPP bruto", show_eur(float(y["espp_gain"])))
-            j5.metric("RSU bruto", show_eur(float(y["rsu_gain"])))
+            jub_total = float(y["ahorro_jub_total"])
+            jub_empresa = float(y["ahorro_jub_empresa"])
+            jub_empleado = float(y["ahorro_jub_empleado"])
+            empresa_ratio = (jub_empresa / jub_total) if jub_total > 0 else 0.0
+            empleado_ratio = (jub_empleado / jub_total) if jub_total > 0 else 0.0
+
+            jub_col, variable_col = st.columns([1.8, 1.2])
+            with jub_col:
+                st.caption("Jubilación")
+                total_col, split_col = st.columns([1.2, 1.0])
+                with total_col:
+                    metric_with_help(st, "Ahorro jubilación", show_eur(jub_total))
+                with split_col:
+                    metric_with_help(st, "Aportación empresa", show_eur(jub_empresa))
+                    metric_with_help(st, "Aportación empleado", show_eur(jub_empleado))
+                st.progress(max(0.0, min(1.0, empresa_ratio)))
+                st.caption(
+                    f"Reparto: Empresa {empresa_ratio * 100:.1f}% | Empleado {empleado_ratio * 100:.1f}%"
+                )
+            with variable_col:
+                st.caption("Variable (bruto)")
+                metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
+                metric_with_help(st, "RSU bruto", show_eur(float(y["rsu_gain"])))
         with block_right:
             st.markdown("##### ESPP Gain por mes")
             if not espp_view.empty:
