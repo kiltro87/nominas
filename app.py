@@ -366,6 +366,9 @@ if not df_nominas.empty:
         metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
         metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
         metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
+        c1, c2 = st.columns(2)
+        c1.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
+        c2.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
 
         block_left, block_right = st.columns([2, 1])
         with block_left:
@@ -461,34 +464,6 @@ if not df_nominas.empty:
                 "Evolución salarial e ingresos recibidos",
             )
             draw_monthly_chart(monthly_view, ["pct_irpf"], "Evolución mensual (% IRPF)", percent_scale=True)
-        if not compact_mode:
-            annual_table = annual_view[
-                ["Año", "neto", "delta_neto_vs_anterior", "pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]
-            ].copy()
-            for col in ["pct_crecimiento_neto_yoy", "pct_irpf_efectivo_anual", "delta_irpf_yoy"]:
-                annual_table[col] = (annual_table[col].astype(float) * 100).round(2)
-            annual_table = apply_privacy_to_columns(annual_table, ["neto", "delta_neto_vs_anterior"])
-            st.dataframe(
-                annual_table.rename(
-                    columns={
-                        "Año": "Año",
-                        "neto": "Neto anual",
-                        "delta_neto_vs_anterior": "Delta neto vs año anterior",
-                        "pct_crecimiento_neto_yoy": "% crecimiento neto YoY",
-                        "pct_irpf_efectivo_anual": "% IRPF efectivo anual",
-                        "delta_irpf_yoy": "Delta IRPF YoY (pp)",
-                    }
-                ),
-                width="stretch",
-            )
-            annual_csv = annual_table.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Descargar KPIs anuales (CSV)",
-                data=annual_csv,
-                file_name="kpis_anuales.csv",
-                mime="text/csv",
-            )
-
         with st.expander("Detalle mensual completo"):
             detail_cols = [
                 "Año",
