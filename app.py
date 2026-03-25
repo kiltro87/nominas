@@ -18,11 +18,21 @@ st.title("Análisis de Nóminas")
 st.markdown(
     """
 <style>
+/* Accent palette */
+:root {
+    --card-bg: #f7faff;
+    --card-border: #d8e3ff;
+    --metric-bg: #ffffff;
+    --metric-border: #dbe4ef;
+    --title: #0f172a;
+    --muted: #334155;
+}
+
 /* Section cards (robust selectors for Streamlit local/cloud) */
 div[data-testid="stVerticalBlockBorderWrapper"],
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
-    background: #f8faff !important;
-    border: 1px solid #dbe4ff !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
     border-radius: 14px !important;
     box-shadow: 0 2px 8px rgba(30, 41, 59, 0.06) !important;
 }
@@ -33,10 +43,22 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div {
 
 /* Metric cards inside sections */
 div[data-testid="stMetric"] {
-    background: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
+    background: var(--metric-bg) !important;
+    border: 1px solid var(--metric-border) !important;
     border-radius: 10px !important;
     padding: 0.45rem 0.55rem !important;
+}
+div[data-testid="stMetricLabel"] p {
+    color: var(--muted) !important;
+    font-weight: 600 !important;
+}
+div[data-testid="stMetricValue"] {
+    color: var(--title) !important;
+}
+
+/* Headings accent */
+h3, h4, h5 {
+    color: #1e3a8a !important;
 }
 
 /* Better spacing between column blocks */
@@ -506,15 +528,7 @@ if not df_nominas.empty:
                         )
                     else:
                         with st.expander("Ver detalle mensual ESPP/RSU", expanded=False):
-                            max_rows = min(12, len(gains_table))
-                            rows_to_show = st.slider(
-                                "Meses a mostrar",
-                                min_value=1,
-                                max_value=max_rows,
-                                value=min(6, max_rows),
-                                key="espp_rsu_rows_to_show",
-                            )
-                            gains_recent = gains_table.tail(int(rows_to_show)).copy()
+                            gains_recent = gains_table.copy()
                             gains_recent = apply_privacy_to_columns(gains_recent, ["ESPP Gain", "RSU Gain"])
                             st.dataframe(zebra_styler(gains_recent), width="stretch")
                             csv_payload = gains_table.to_csv(index=False).encode("utf-8")
