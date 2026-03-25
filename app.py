@@ -367,19 +367,31 @@ if not df_nominas.empty:
         metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
         metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
 
-        st.markdown("##### Jubilación, ESPP y RSU")
-        grp1, grp2, grp3 = st.columns([1.15, 1.15, 0.9])
-        with grp1:
-            st.caption("Jubilación")
-            metric_with_help(st, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
-        with grp2:
-            st.caption("Aportaciones")
-            metric_with_help(st, "Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
-            metric_with_help(st, "Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
-        with grp3:
-            st.caption("Variable (bruto)")
-            metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
-            metric_with_help(st, "RSU bruto", show_eur(float(y["rsu_gain"])))
+        block_left, block_right = st.columns([2, 1])
+        with block_left:
+            st.markdown("##### Jubilación, ESPP y RSU")
+            grp1, grp2, grp3 = st.columns([1.15, 1.15, 0.9])
+            with grp1:
+                st.caption("Jubilación")
+                metric_with_help(st, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"])))
+            with grp2:
+                st.caption("Aportaciones")
+                metric_with_help(st, "Aportación empresa", show_eur(float(y["ahorro_jub_empresa"])))
+                metric_with_help(st, "Aportación empleado", show_eur(float(y["ahorro_jub_empleado"])))
+            with grp3:
+                st.caption("Variable (bruto)")
+                metric_with_help(st, "ESPP bruto", show_eur(float(y["espp_gain"])))
+                metric_with_help(st, "RSU bruto", show_eur(float(y["rsu_gain"])))
+        with block_right:
+            st.markdown("##### ESPP Gain por mes")
+            if not espp_view.empty:
+                espp_table = espp_view[["Periodo_natural", "espp_gain"]].rename(
+                    columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain"}
+                )
+                espp_table = apply_privacy_to_columns(espp_table, ["ESPP Gain"])
+                st.dataframe(espp_table, width="stretch")
+            else:
+                st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), width="stretch")
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
@@ -476,17 +488,6 @@ if not df_nominas.empty:
                 file_name="kpis_anuales.csv",
                 mime="text/csv",
             )
-
-        if not compact_mode:
-            st.subheader("ESPP Gain por mes")
-            if not espp_view.empty:
-                espp_table = espp_view[["Periodo_natural", "espp_gain"]].rename(
-                    columns={"Periodo_natural": "Periodo", "espp_gain": "ESPP Gain"}
-                )
-                espp_table = apply_privacy_to_columns(espp_table, ["ESPP Gain"])
-                st.dataframe(espp_table, width="stretch")
-            else:
-                st.dataframe(pd.DataFrame([{"Info": "Sin ESPP Gain registrado"}]), width="stretch")
 
         with st.expander("Detalle mensual completo"):
             detail_cols = [
