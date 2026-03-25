@@ -63,6 +63,23 @@ def show_eur(value: float) -> str:
     return "••••••" if hide_amounts else format_eur(float(value))
 
 
+def show_compact_eur(value: float) -> str:
+    v = float(value)
+    sign = "-" if v < 0 else ""
+    av = abs(v)
+    if av < 1000:
+        return format_eur(v)
+    if av < 1_000_000:
+        return f"{sign}{str(f'{av / 1000:.1f}').replace('.', ',')}k €"
+    return f"{sign}{str(f'{av / 1_000_000:.1f}').replace('.', ',')}M €"
+
+
+def zebra_styler(df: pd.DataFrame) -> pd.io.formats.style.Styler:
+    bg = pd.DataFrame("", index=df.index, columns=df.columns)
+    bg.iloc[1::2, :] = "background-color: #f7f7f7"
+    return df.style.apply(lambda _: bg, axis=None)
+
+
 def apply_privacy_to_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     out = df.copy()
     for col in columns:
@@ -286,10 +303,6 @@ if not df_nominas.empty:
             ].copy()
         nominas_view = nominas_view.sort_values(["Año", "Mes", "Concepto"]).reset_index(drop=True)
 
-        monthly_title = "KPIs mensuales"
-        if year_option == "Todos" and period_option == "Todos":
-            monthly_title += " (último mes disponible)"
-        st.subheader(monthly_title)
         m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
         # Comparador de periodos para tarjetas mensuales
         monthly_all = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
@@ -306,7 +319,21 @@ if not df_nominas.empty:
         delta_label = None
         if cmp_row is not None:
             delta_label = f"vs {cmp_row['Periodo_natural']}"
-            st.caption(delta_label)
+        monthly_title = "KPIs mensuales"
+        if year_option == "Todos" and period_option == "Todos":
+            monthly_title += " (último mes disponible)"
+        compare_chip = ""
+        if compare_mode != "Sin comparación":
+            compare_chip_text = (
+                delta_label
+                if delta_label is not None
+                else ("vs mes anterior" if compare_mode == "Mes anterior" else "vs mismo mes año anterior")
+            )
+            compare_chip = (
+                f"<span style='margin-left:8px;padding:2px 8px;border-radius:999px;"
+                f"background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3;'>{compare_chip_text}</span>"
+            )
+        st.markdown(f"### {monthly_title}{compare_chip}", unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns(5)
         if cmp_row is not None:
             metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
@@ -400,28 +427,28 @@ if not df_nominas.empty:
             st.caption(f"Reparto jubilación: Empresa {empresa_pct:.1f}% | Empleado {empleado_pct:.1f}%")
         with block_right:
             st.markdown("##### ESPP y RSU")
-            right_metrics, right_table = st.columns([1, 2])
-            with right_metrics:
-                metric_with_help(st, "ESPP", show_eur(float(y["espp_gain"])))
-                metric_with_help(st, "RSU", show_eur(float(y["rsu_gain"])))
-            with right_table:
-                st.markdown("##### ESPP y RSU por mes")
-                gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
-                    columns={
-                        "Periodo_natural": "Periodo",
-                        "espp_gain": "ESPP Gain",
-                        "rsu_gain": "RSU Gain",
-                    }
+            rm1, rm2 = st.columns(2)
+            metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
+            metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
+            gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
+                columns={
+                    "Periodo_natural": "Periodo",
+                    "espp_gain": "ESPP Gain",
+                    "rsu_gain": "RSU Gain",
+                }
+            )
+            gains_table = gains_table[
+                (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
+                | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
+            ].reset_index(drop=True)
+            if gains_table.empty:
+                st.info(
+                    "Sin datos de ESPP/RSU para el filtro actual. "
+                    "Prueba con otro año o selecciona 'Todos' en mes."
                 )
-                gains_table = gains_table[
-                    (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
-                    | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
-                ].reset_index(drop=True)
-                if gains_table.empty:
-                    st.dataframe(pd.DataFrame([{"Info": "Sin ESPP/RSU registrado"}]), width="stretch")
-                else:
-                    gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
-                    st.dataframe(gains_table, width="stretch")
+            else:
+                gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
+                st.dataframe(gains_table, width="stretch")
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
@@ -586,7 +613,7 @@ if not df_nominas.empty:
             breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
             irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
             breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
-            ctrl1, ctrl2, ctrl3, ctrl4, ctrl5 = st.columns(5)
+            ctrl1, ctrl2, ctrl3, ctrl4, ctrl5, ctrl6 = st.columns(6)
             with ctrl1:
                 grouping_mode = st.selectbox(
                     "Agrupar por",
@@ -607,6 +634,8 @@ if not df_nominas.empty:
                 hide_zero_rows = st.checkbox("Ocultar filas en cero", value=True, key="breakdown_hide_zeros")
             with ctrl5:
                 top_n = st.number_input("Top filas", min_value=10, max_value=5000, value=200, step=10, key="breakdown_top_n")
+            with ctrl6:
+                expand_amounts = st.checkbox("Expandir importes", value=False, key="breakdown_expand_amounts")
             breakdown["Importe_num"] = pd.to_numeric(
                 breakdown["Importe"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
                 errors="coerce",
@@ -666,17 +695,27 @@ if not df_nominas.empty:
                     pivot = pivot[non_zero_mask].copy()
             pivot = pivot.head(int(top_n))
 
-            if hide_amounts:
-                for col in [c for c in pivot.columns if c != index_col_name]:
-                    pivot[col] = "••••••"
+            if pivot.empty:
+                st.info(
+                    "No hay filas para el desglose con los filtros actuales. "
+                    "Prueba a quitar 'Solo con cambios', ampliar el Top, o limpiar la búsqueda."
+                )
             else:
-                eur_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
-                for col in eur_cols:
-                    pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
-                if "Δ %" in pivot.columns:
-                    pivot["Δ %"] = pivot["Δ %"].apply(lambda x: f"{float(x):.2f}%")
+                if hide_amounts:
+                    for col in [c for c in pivot.columns if c != index_col_name]:
+                        pivot[col] = "••••••"
+                else:
+                    eur_cols = [c for c in pivot.columns if c not in {index_col_name, "Δ %"}]
+                    for col in eur_cols:
+                        if expand_amounts:
+                            pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
+                        else:
+                            pivot[col] = pivot[col].apply(lambda x: show_compact_eur(float(x)))
+                    if "Δ %" in pivot.columns:
+                        pivot["Δ %"] = pivot["Δ %"].apply(lambda x: f"{float(x):.2f}%")
 
-            st.dataframe(pivot, width="stretch")
+                pivot_display = pivot.set_index(index_col_name)
+                st.dataframe(zebra_styler(pivot_display), width="stretch")
             csv_payload = pivot.to_csv(index=False).encode("utf-8")
             st.download_button(
                 "Descargar desglose mensual (CSV)",
