@@ -20,18 +20,18 @@ st.markdown(
 <style>
 /* Material 3 Expressive-inspired palette */
 :root {
-    --m3-primary: #6750a4;
+    --m3-primary: #3b82f6;
     --m3-on-primary: #ffffff;
-    --m3-primary-container: #eaddff;
-    --m3-on-primary-container: #21005d;
-    --m3-secondary-container: #e8def8;
-    --m3-surface: #fffbfe;
-    --m3-surface-container: #f3edf7;
-    --m3-surface-container-high: #ece6f0;
-    --m3-outline: #cac4d0;
-    --m3-outline-variant: #e7e0ec;
-    --m3-on-surface: #1d1b20;
-    --m3-on-surface-variant: #49454f;
+    --m3-primary-container: #eaf2ff;
+    --m3-on-primary-container: #0f2a52;
+    --m3-secondary-container: #eef2f7;
+    --m3-surface: #fcfcfd;
+    --m3-surface-container: #f5f7fa;
+    --m3-surface-container-high: #edf1f5;
+    --m3-outline: #cfd8e3;
+    --m3-outline-variant: #e4e9f0;
+    --m3-on-surface: #111827;
+    --m3-on-surface-variant: #4b5563;
     --m3-shadow: 0 3px 10px rgba(29, 27, 32, 0.10);
 }
 
