@@ -468,43 +468,43 @@ if not df_nominas.empty:
             b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
             b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
 
-        block_left, block_right = st.columns([3, 2])
-        with block_left:
-            with st.container(border=True):
-                st.markdown("##### Jubilación")
-                jub_total = float(y["ahorro_jub_total"])
-                jub_empresa = float(y["ahorro_jub_empresa"])
-                jub_empleado = float(y["ahorro_jub_empleado"])
+            block_left, block_right = st.columns([3, 2])
+            with block_left:
+                with st.container(border=True):
+                    st.markdown("##### Jubilación")
+                    jub_total = float(y["ahorro_jub_total"])
+                    jub_empresa = float(y["ahorro_jub_empresa"])
+                    jub_empleado = float(y["ahorro_jub_empleado"])
 
-                j1, j2, j3 = st.columns(3)
-                metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
-                metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
-                metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
-        with block_right:
-            with st.container(border=True):
-                st.markdown("##### ESPP y RSU")
-                rm1, rm2 = st.columns(2)
-                metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
-                metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
-                gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
-                    columns={
-                        "Periodo_natural": "Periodo",
-                        "espp_gain": "ESPP Gain",
-                        "rsu_gain": "RSU Gain",
-                    }
-                )
-                gains_table = gains_table[
-                    (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
-                    | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
-                ].reset_index(drop=True)
-                if gains_table.empty:
-                    st.info(
-                        "Sin datos de ESPP/RSU para el filtro actual. "
-                        "Prueba con otro año o selecciona 'Todos' en mes."
+                    j1, j2, j3 = st.columns(3)
+                    metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
+                    metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
+                    metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
+            with block_right:
+                with st.container(border=True):
+                    st.markdown("##### ESPP y RSU")
+                    rm1, rm2 = st.columns(2)
+                    metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
+                    metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
+                    gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
+                        columns={
+                            "Periodo_natural": "Periodo",
+                            "espp_gain": "ESPP Gain",
+                            "rsu_gain": "RSU Gain",
+                        }
                     )
-                else:
-                    gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
-                    st.dataframe(zebra_styler(gains_table), width="stretch")
+                    gains_table = gains_table[
+                        (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
+                        | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
+                    ].reset_index(drop=True)
+                    if gains_table.empty:
+                        st.info(
+                            "Sin datos de ESPP/RSU para el filtro actual. "
+                            "Prueba con otro año o selecciona 'Todos' en mes."
+                        )
+                    else:
+                        gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
+                        st.dataframe(zebra_styler(gains_table), width="stretch")
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
