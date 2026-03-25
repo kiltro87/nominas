@@ -15,7 +15,6 @@ from sheets_client import SheetsClient
 
 st.set_page_config(page_title="Análisis de Nóminas", layout="wide")
 st.title("Análisis de Nóminas")
-st.caption("Dashboard de nóminas alimentado automáticamente desde Drive -> Google Sheets")
 
 hide_amounts = st.toggle(
     "Modo privacidad",
@@ -319,43 +318,44 @@ if not df_nominas.empty:
         delta_label = None
         if cmp_row is not None:
             delta_label = f"vs {cmp_row['Periodo_natural']}"
-        monthly_title = "KPIs mensuales"
-        if year_option == "Todos" and period_option == "Todos":
-            monthly_title += " (último mes disponible)"
-        compare_chip = ""
-        if compare_mode != "Sin comparación":
-            compare_chip_text = (
-                delta_label
-                if delta_label is not None
-                else ("vs mes anterior" if compare_mode == "Mes anterior" else "vs mismo mes año anterior")
-            )
-            compare_chip = (
-                f"<span style='margin-left:8px;padding:2px 8px;border-radius:999px;"
-                f"background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3;'>{compare_chip_text}</span>"
-            )
-        st.markdown(f"### {monthly_title}{compare_chip}", unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns(5)
-        if cmp_row is not None:
-            metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
-            metric_with_help(c2, "Neto", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
-            metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
-        else:
-            metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])))
-            metric_with_help(c2, "Neto", show_eur(float(m["neto"])))
-            metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
-        metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
-        metric_with_help(c5, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"])))
+        with st.container(border=True):
+            monthly_title = "KPIs mensuales"
+            if year_option == "Todos" and period_option == "Todos":
+                monthly_title += " (último mes disponible)"
+            compare_chip = ""
+            if compare_mode != "Sin comparación":
+                compare_chip_text = (
+                    delta_label
+                    if delta_label is not None
+                    else ("vs mes anterior" if compare_mode == "Mes anterior" else "vs mismo mes año anterior")
+                )
+                compare_chip = (
+                    f"<span style='margin-left:8px;padding:2px 8px;border-radius:999px;"
+                    f"background:#eef2ff;border:1px solid #c7d2fe;font-size:12px;color:#3730a3;'>{compare_chip_text}</span>"
+                )
+            st.markdown(f"### {monthly_title}{compare_chip}", unsafe_allow_html=True)
+            c1, c2, c3, c4, c5 = st.columns(5)
+            if cmp_row is not None:
+                metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
+                metric_with_help(c2, "Neto", show_eur(float(m["neto"])), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
+                metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
+            else:
+                metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"])))
+                metric_with_help(c2, "Neto", show_eur(float(m["neto"])))
+                metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
+            metric_with_help(c4, "Consumo en especie", show_eur(float(m["consumo_especie"])))
+            metric_with_help(c5, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"])))
 
-        ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
-        c6, c7, c8, c9, c10 = st.columns(5)
-        metric_with_help(c6, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"])))
-        metric_with_help(c7, "Ahorro jubilación", show_eur(ahorro_jub_mensual))
-        metric_with_help(c8, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"])))
-        metric_with_help(c9, "Ahorro jub. empresa", show_eur(float(m["ahorro_jub_empresa"])))
-        metric_with_help(c10, "Ahorro jub. empleado", show_eur(float(m["ahorro_jub_empleado"])))
+            ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
+            c6, c7, c8, c9, c10 = st.columns(5)
+            metric_with_help(c6, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"])))
+            metric_with_help(c7, "Ahorro jubilación", show_eur(ahorro_jub_mensual))
+            metric_with_help(c8, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"])))
+            metric_with_help(c9, "Ahorro jub. empresa", show_eur(float(m["ahorro_jub_empresa"])))
+            metric_with_help(c10, "Ahorro jub. empleado", show_eur(float(m["ahorro_jub_empleado"])))
 
-        if cmp_row is not None:
-            with st.expander("Explicar delta (Top 5 conceptos)"):
+            if cmp_row is not None:
+                with st.expander("Explicar delta (Top 5 conceptos)"):
                 raw_comp = df_nominas.copy()
                 raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
                 raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
@@ -391,61 +391,64 @@ if not df_nominas.empty:
                         explain[col] = explain[col].apply(lambda x: format_eur(float(x)))
                 st.dataframe(zebra_styler(explain), width="stretch")
 
-        annual_title = "KPIs anuales"
-        if year_option == "Todos":
-            annual_title += " (último año disponible)"
-        st.subheader(annual_title)
-        y = annual_view.sort_values("Año").iloc[-1]
-        irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
-        a1, a2, a3, a4, a5 = st.columns(5)
-        metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"])))
-        metric_with_help(a2, "Neto", show_eur(float(y["neto"])))
-        metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
-        metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
-        metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"])))
+        with st.container(border=True):
+            annual_title = "KPIs anuales"
+            if year_option == "Todos":
+                annual_title += " (último año disponible)"
+            st.subheader(annual_title)
+            y = annual_view.sort_values("Año").iloc[-1]
+            irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
+            a1, a2, a3, a4, a5 = st.columns(5)
+            metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"])))
+            metric_with_help(a2, "Neto", show_eur(float(y["neto"])))
+            metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
+            metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
+            metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"])))
 
-        b1, b2, b3, b4, b5 = st.columns(5)
-        metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
-        metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
-        metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
-        b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
-        b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
+            b1, b2, b3, b4, b5 = st.columns(5)
+            metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"])))
+            metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"])))
+            metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"])))
+            b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"])))
+            b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
 
         block_left, block_right = st.columns([3, 2])
         with block_left:
-            st.markdown("##### Jubilación")
-            jub_total = float(y["ahorro_jub_total"])
-            jub_empresa = float(y["ahorro_jub_empresa"])
-            jub_empleado = float(y["ahorro_jub_empleado"])
+            with st.container(border=True):
+                st.markdown("##### Jubilación")
+                jub_total = float(y["ahorro_jub_total"])
+                jub_empresa = float(y["ahorro_jub_empresa"])
+                jub_empleado = float(y["ahorro_jub_empleado"])
 
-            j1, j2, j3 = st.columns(3)
-            metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
-            metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
-            metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
+                j1, j2, j3 = st.columns(3)
+                metric_with_help(j1, "Ahorro jubilación", show_eur(jub_total))
+                metric_with_help(j2, "Aportación empresa", show_eur(jub_empresa))
+                metric_with_help(j3, "Aportación empleado", show_eur(jub_empleado))
         with block_right:
-            st.markdown("##### ESPP y RSU")
-            rm1, rm2 = st.columns(2)
-            metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
-            metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
-            gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
-                columns={
-                    "Periodo_natural": "Periodo",
-                    "espp_gain": "ESPP Gain",
-                    "rsu_gain": "RSU Gain",
-                }
-            )
-            gains_table = gains_table[
-                (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
-                | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
-            ].reset_index(drop=True)
-            if gains_table.empty:
-                st.info(
-                    "Sin datos de ESPP/RSU para el filtro actual. "
-                    "Prueba con otro año o selecciona 'Todos' en mes."
+            with st.container(border=True):
+                st.markdown("##### ESPP y RSU")
+                rm1, rm2 = st.columns(2)
+                metric_with_help(rm1, "ESPP", show_eur(float(y["espp_gain"])))
+                metric_with_help(rm2, "RSU", show_eur(float(y["rsu_gain"])))
+                gains_table = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain"]].rename(
+                    columns={
+                        "Periodo_natural": "Periodo",
+                        "espp_gain": "ESPP Gain",
+                        "rsu_gain": "RSU Gain",
+                    }
                 )
-            else:
-                gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
-                st.dataframe(zebra_styler(gains_table), width="stretch")
+                gains_table = gains_table[
+                    (pd.to_numeric(gains_table["ESPP Gain"], errors="coerce").fillna(0.0) != 0.0)
+                    | (pd.to_numeric(gains_table["RSU Gain"], errors="coerce").fillna(0.0) != 0.0)
+                ].reset_index(drop=True)
+                if gains_table.empty:
+                    st.info(
+                        "Sin datos de ESPP/RSU para el filtro actual. "
+                        "Prueba con otro año o selecciona 'Todos' en mes."
+                    )
+                else:
+                    gains_table = apply_privacy_to_columns(gains_table, ["ESPP Gain", "RSU Gain"])
+                    st.dataframe(zebra_styler(gains_table), width="stretch")
 
         st.subheader("Comparativa y evolución")
         if year_option == "Todos" and period_option == "Todos":
