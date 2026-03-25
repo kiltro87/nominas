@@ -101,6 +101,7 @@ def get_runtime_config() -> dict:
     return {}
 
 
+@st.cache_data(ttl=300)
 def load_nominas_from_sheet() -> pd.DataFrame:
     cfg = get_runtime_config()
     if not cfg:
@@ -121,7 +122,11 @@ def load_nominas_from_sheet() -> pd.DataFrame:
 df_nominas = load_nominas_from_sheet()
 
 if not df_nominas.empty:
-    monthly, annual, espp_months = build_all_kpis(df_nominas)
+    @st.cache_data(ttl=300)
+    def build_kpis_cached(df: pd.DataFrame):
+        return build_all_kpis(df)
+
+    monthly, annual, espp_months = build_kpis_cached(df_nominas)
     if monthly.empty or annual.empty:
         st.info("No hay suficientes datos para construir KPIs agregados todavía.")
     else:
@@ -163,6 +168,23 @@ if not df_nominas.empty:
         monthly_view = monthly_view.sort_values(["Año", "Mes"]).reset_index(drop=True)
         annual_view = annual_view.sort_values(["Año"]).reset_index(drop=True)
         espp_view = espp_view.sort_values(["Año", "Mes"]).reset_index(drop=True)
+
+        # Alertas rápidas de calidad (visibles arriba del dashboard)
+        alertas: list[str] = []
+        if (monthly_view["neto"] < 0).any():
+            bad_periods = monthly_view.loc[monthly_view["neto"] < 0, "Periodo_natural"].tolist()
+            alertas.append(f"Neto mensual negativo en: {', '.join(bad_periods)}")
+        if (monthly_view["pct_irpf"] > 0.60).any():
+            high_periods = monthly_view.loc[monthly_view["pct_irpf"] > 0.60, "Periodo_natural"].tolist()
+            alertas.append(f"% IRPF mensual > 60% en: {', '.join(high_periods)}")
+        if year_option != "Todos":
+            months_present = set(monthly_view["Mes"].astype(int).tolist())
+            expected = set(range(1, 13))
+            missing = sorted(expected - months_present)
+            if missing:
+                alertas.append(f"Faltan meses en el año seleccionado: {', '.join(str(m) for m in missing)}")
+        if alertas:
+            st.warning(" | ".join(alertas))
 
         nominas_view = df_nominas.copy()
         nominas_view["Año"] = pd.to_numeric(nominas_view["Año"], errors="coerce")
@@ -444,14 +466,32 @@ if not df_nominas.empty:
             )
             pivot = pivot.rename(columns={"Concepto_agrupado": "Concepto"})
 
+            if period_option == "Todos" and len(month_order) >= 2:
+                latest = month_order[-1]
+                prev = month_order[-2]
+                pivot["Δ abs"] = pivot[latest] - pivot[prev]
+                pivot["Δ %"] = pivot.apply(
+                    lambda r: ((r[latest] - r[prev]) / r[prev] * 100.0) if float(r[prev]) != 0 else 0.0, axis=1
+                )
+
             if hide_amounts:
                 for col in [c for c in pivot.columns if c != "Concepto"]:
                     pivot[col] = "••••••"
             else:
-                for col in [c for c in pivot.columns if c != "Concepto"]:
+                eur_cols = [c for c in pivot.columns if c not in {"Concepto", "Δ %"}]
+                for col in eur_cols:
                     pivot[col] = pivot[col].apply(lambda x: format_eur(float(x)))
+                if "Δ %" in pivot.columns:
+                    pivot["Δ %"] = pivot["Δ %"].apply(lambda x: f"{float(x):.2f}%")
 
             st.dataframe(pivot, width="stretch")
+            csv_payload = pivot.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Descargar desglose mensual (CSV)",
+                data=csv_payload,
+                file_name="desglose_mensual.csv",
+                mime="text/csv",
+            )
 
         with st.expander("Definiciones de métricas"):
             st.markdown(
