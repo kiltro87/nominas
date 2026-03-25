@@ -32,7 +32,7 @@ st.markdown(
     --m3-outline-variant: #e4e9f0;
     --m3-on-surface: #111827;
     --m3-on-surface-variant: #4b5563;
-    --m3-shadow: 0 3px 10px rgba(29, 27, 32, 0.10);
+    --m3-shadow: 0 1px 4px rgba(17, 24, 39, 0.06);
 }
 
 /* Section cards */
@@ -40,8 +40,8 @@ div[data-testid="stVerticalBlockBorderWrapper"],
 div[data-testid="stVerticalBlockBorderWrapper"] > div {
     background: var(--m3-surface-container) !important;
     border: 1px solid var(--m3-outline-variant) !important;
-    border-left: 4px solid #93c5fd !important;
-    border-radius: 18px !important;
+    border-left: 2px solid #bfdbfe !important;
+    border-radius: 14px !important;
     box-shadow: var(--m3-shadow) !important;
 }
 
@@ -72,9 +72,7 @@ h3, h4, h5 {
 }
 
 /* Better spacing between column blocks */
-div[data-testid="stHorizontalBlock"] {
-    gap: 0.85rem !important;
-}
+div[data-testid="stHorizontalBlock"] { gap: 0.8rem !important; }
 
 /* Selectbox/input accents */
 div[data-baseweb="select"] > div,
@@ -91,9 +89,9 @@ div[data-baseweb="input"] > div:focus-within {
 
 /* Expander styling */
 details {
-    background: #f8fbff !important;
-    border: 1px solid #dbeafe !important;
-    border-radius: 14px !important;
+    background: #f9fbff !important;
+    border: 1px solid #e5edfb !important;
+    border-radius: 12px !important;
     padding: 0.2rem 0.4rem !important;
 }
 
@@ -101,7 +99,12 @@ details {
 div[data-testid="stDataFrame"] thead tr th {
     background: #dbeafe !important;
     color: #1e3a8a !important;
-    font-weight: 700 !important;
+    font-weight: 600 !important;
+}
+
+/* Hide Streamlit heading anchor link shown on hover */
+a[href^="#"] {
+    display: none !important;
 }
 
 /* Responsive layout: allow columns to wrap */
