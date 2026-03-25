@@ -134,7 +134,7 @@ def render_breakdown(
         with ctrl5:
             top_n = st.number_input("Top filas", min_value=10, max_value=5000, value=200, step=10, key="breakdown_top_n")
         with ctrl6:
-            expand_amounts = st.checkbox("Expandir importes", value=False, key="breakdown_expand_amounts")
+            expand_amounts = st.checkbox("Expandir importes", value=True, key="breakdown_expand_amounts")
         breakdown["Importe_num"] = parse_spanish_amount_series(breakdown["Importe"])
         breakdown["Periodo"] = (
             breakdown["Año"].astype(int).astype(str) + "-" + breakdown["Mes"].astype(int).astype(str).str.zfill(2)
@@ -210,8 +210,7 @@ def render_breakdown(
                 if "Δ %" in pivot.columns:
                     pivot["Δ %"] = pivot["Δ %"].apply(lambda x: f"{float(x):.2f}%")
 
-            pivot_display = pivot.set_index(index_col_name)
-            st.dataframe(zebra_styler(pivot_display), width="stretch")
+            st.dataframe(zebra_styler(pivot), width="stretch")
         csv_payload = pivot.to_csv(index=False).encode("utf-8")
         st.download_button(
             "Descargar desglose mensual (CSV)",
