@@ -34,15 +34,25 @@ hide_amounts = st.toggle(
     value=False,
     help="Oculta importes monetarios en KPIs, tablas y graficas para compartir la pantalla.",
 )
+tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
 
 df_nominas = load_nominas_cached()
 if df_nominas.empty:
-    st.info("No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.")
+    with tab_actual:
+        st.info("No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.")
+    with tab_ejecutivo:
+        st.info(
+            "El dashboard ejecutivo necesita datos de 'Nominas'. "
+            "Configura secrets/acceso a Google Sheets y recarga."
+        )
     st.stop()
 
 monthly, annual, _ = build_kpis_cached(df_nominas)
 if monthly.empty or annual.empty:
-    st.info("No hay suficientes datos para construir KPIs agregados todavía.")
+    with tab_actual:
+        st.info("No hay suficientes datos para construir KPIs agregados todavía.")
+    with tab_ejecutivo:
+        st.info("Sin datos agregados suficientes para la vista ejecutiva.")
     st.stop()
 
 monthly = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
@@ -92,8 +102,6 @@ alertas, quality_rows = build_quality_alerts(
 )
 if alertas:
     st.warning(" | ".join(alertas))
-
-tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
 
 with tab_actual:
     render_monthly_kpis_card(
