@@ -5,6 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import format_eur
+from nominas_app.services.dashboard_data import parse_spanish_amount_series
 from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
 
 
@@ -121,6 +122,51 @@ def _build_annual_summary_table(annual_view: pd.DataFrame, hide_amounts: bool) -
     return table.reset_index(drop=True)
 
 
+def _render_supporting_tables(
+    monthly_view: pd.DataFrame,
+    nominas_view: pd.DataFrame,
+    hide_amounts: bool,
+) -> None:
+    with st.container(border=True):
+        st.markdown("##### Soporte analitico")
+        left, right = st.columns(2)
+        with left:
+            st.caption("Detalle mensual clave")
+            detail = monthly_view[
+                ["Periodo_natural", "neto", "total_devengado", "total_deducir", "pct_irpf"]
+            ].copy()
+            detail = detail.rename(
+                columns={
+                    "Periodo_natural": "Periodo",
+                    "neto": "Neto",
+                    "total_devengado": "Bruto",
+                    "total_deducir": "Deducciones",
+                    "pct_irpf": "% IRPF",
+                }
+            )
+            detail["% IRPF"] = (pd.to_numeric(detail["% IRPF"], errors="coerce").fillna(0.0) * 100).round(2).astype(str) + "%"
+            for col in ["Neto", "Bruto", "Deducciones"]:
+                detail[col] = detail[col].apply(lambda x: "••••••" if hide_amounts else format_eur(float(x)))
+            st.dataframe(zebra_styler(detail.tail(6).reset_index(drop=True)), width="stretch")
+        with right:
+            st.caption("Top conceptos del filtro")
+            base = nominas_view.copy()
+            base["Importe_num"] = parse_spanish_amount_series(base["Importe"])
+            top = (
+                base.groupby("Concepto", as_index=False)["Importe_num"]
+                .sum()
+                .rename(columns={"Importe_num": "Importe"})
+                .sort_values("Importe", ascending=False, key=lambda s: s.abs())
+                .head(8)
+                .reset_index(drop=True)
+            )
+            if top.empty:
+                st.info("Sin conceptos para el filtro actual.")
+            else:
+                top["Importe"] = top["Importe"].apply(lambda x: "••••••" if hide_amounts else format_eur(float(x)))
+                st.dataframe(zebra_styler(top), width="stretch")
+
+
 def render_executive_dashboard(
     monthly_view: pd.DataFrame,
     annual_view: pd.DataFrame,
@@ -128,6 +174,7 @@ def render_executive_dashboard(
     year_option: int | str,
     hide_amounts: bool,
     quality_rows: list[dict[str, str]],
+    nominas_view: pd.DataFrame,
 ) -> None:
     with st.container(border=True):
         st.subheader("Analisis estrategico y evolucion anual")
@@ -208,6 +255,12 @@ def render_executive_dashboard(
                 .properties(height=270)
             )
             st.altair_chart(donut, use_container_width=True)
+
+    _render_supporting_tables(
+        monthly_view=monthly_view,
+        nominas_view=nominas_view,
+        hide_amounts=hide_amounts,
+    )
 
     if year_option == "Todos":
         st.caption("Mostrando evolucion completa (todos los años).")

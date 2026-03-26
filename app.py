@@ -29,15 +29,15 @@ def load_nominas_cached() -> pd.DataFrame:
 st.set_page_config(page_title="Análisis de Nóminas", layout="wide")
 st.title("Análisis de Nóminas")
 apply_app_styles()
-hide_amounts = st.toggle(
-    "Modo privacidad",
-    value=False,
-    help="Oculta importes monetarios en KPIs, tablas y graficas para compartir la pantalla.",
-)
-tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
 
 df_nominas = load_nominas_cached()
 if df_nominas.empty:
+    hide_amounts = st.toggle(
+        "Modo privacidad",
+        value=False,
+        help="Oculta importes monetarios en KPIs, tablas y graficas para compartir la pantalla.",
+    )
+    tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
     with tab_actual:
         st.info("No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.")
     with tab_ejecutivo:
@@ -49,6 +49,12 @@ if df_nominas.empty:
 
 monthly, annual, _ = build_kpis_cached(df_nominas)
 if monthly.empty or annual.empty:
+    hide_amounts = st.toggle(
+        "Modo privacidad",
+        value=False,
+        help="Oculta importes monetarios en KPIs, tablas y graficas para compartir la pantalla.",
+    )
+    tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
     with tab_actual:
         st.info("No hay suficientes datos para construir KPIs agregados todavía.")
     with tab_ejecutivo:
@@ -59,13 +65,13 @@ monthly = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
 annual = annual.sort_values(["Año"]).reset_index(drop=True)
 
 available_years = sorted(int(y) for y in monthly["Año"].unique())
-filter_col1, filter_col2, filter_col3 = st.columns(3)
-with filter_col1:
+toolbar_col1, toolbar_col2, toolbar_col3, toolbar_col4 = st.columns([1.2, 1.2, 1.3, 1.0])
+with toolbar_col1:
     year_option = st.selectbox(
-        "Filtro de año",
+        "Año",
         options=["Todos"] + available_years,
         index=0,
-        help="Selecciona un año para centrar KPIs y evolución mensual.",
+        help="Selector principal para la vista ejecutiva y analítica.",
     )
 
 if year_option == "Todos":
@@ -73,19 +79,25 @@ if year_option == "Todos":
 else:
     month_scope = monthly[monthly["Año"] == int(year_option)].copy()
 period_options = ["Todos"] + month_scope["Periodo"].drop_duplicates().sort_values().tolist()
-with filter_col2:
+with toolbar_col2:
     period_option = st.selectbox(
-        "Filtro de mes",
+        "Mes",
         options=period_options,
         index=0,
         help="Opcional: filtra un mes concreto dentro del año seleccionado.",
     )
-with filter_col3:
+with toolbar_col3:
     compare_mode = st.selectbox(
         "Comparar contra",
         options=["Sin comparación", "Mes anterior", "Mismo mes año anterior"],
         index=0,
         help="Aplica al bloque de KPIs mensuales.",
+    )
+with toolbar_col4:
+    hide_amounts = st.toggle(
+        "Modo privacidad",
+        value=False,
+        help="Oculta importes monetarios para compartir pantalla.",
     )
 
 views = filter_kpi_views(monthly=monthly, annual=annual, year_option=year_option, period_option=period_option)
@@ -102,6 +114,8 @@ alertas, quality_rows = build_quality_alerts(
 )
 if alertas:
     st.warning(" | ".join(alertas))
+
+tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
 
 with tab_actual:
     render_monthly_kpis_card(
@@ -149,4 +163,5 @@ with tab_ejecutivo:
         year_option=year_option,
         hide_amounts=hide_amounts,
         quality_rows=quality_rows,
+        nominas_view=nominas_view,
     )
