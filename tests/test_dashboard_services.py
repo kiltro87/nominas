@@ -1,6 +1,6 @@
 import pandas as pd
 
-from nominas.services.dashboard_data import (
+from nominas_app.services.dashboard_data import (
     build_nominas_view,
     build_quality_alerts,
     filter_kpi_views,

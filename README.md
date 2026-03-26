@@ -8,8 +8,8 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 - `drive_ingestor.py`: ingesta automática de Drive -> Sheets (recursiva en subcarpetas), con control de duplicados.
 - `kpi_builder.py`: cálculo de métricas mensuales, anuales y comparativas YoY.
 - `app.py`: orquestador Streamlit (filtros + flujo principal).
-- `nominas/ui/*`: render de tarjetas, tablas, gráficas y secciones de calidad.
-- `nominas/services/*`: preparación de dataframes para vistas y alertas.
+- `nominas_app/ui/*`: render de tarjetas, tablas, gráficas y secciones de calidad.
+- `nominas_app/services/*`: preparación de dataframes para vistas y alertas.
 - `subcategorias.json`: catálogo editable de matching de conceptos -> subcategorías.
 
 ### Estructura recomendada
@@ -22,7 +22,7 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 ├── kpi_builder.py
 ├── sheets_client.py
 ├── subcategorias.json
-├── nominas/
+├── nominas_app/
 │   ├── services/
 │   │   ├── config_loader.py
 │   │   └── dashboard_data.py

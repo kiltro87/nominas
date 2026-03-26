@@ -4,8 +4,8 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import format_eur
-from nominas.services.dashboard_data import parse_spanish_amount_series
-from nominas.ui.formatting import zebra_styler
+from nominas_app.services.dashboard_data import parse_spanish_amount_series
+from nominas_app.ui.formatting import zebra_styler
 
 
 def render_quality_sections(

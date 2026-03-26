@@ -2,17 +2,17 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import build_all_kpis
-from nominas.services.config_loader import load_nominas_from_sheet
-from nominas.services.dashboard_data import (
+from nominas_app.services.config_loader import load_nominas_from_sheet
+from nominas_app.services.dashboard_data import (
     build_nominas_view,
     build_quality_alerts,
     filter_kpi_views,
 )
-from nominas.ui.cards import render_annual_kpis_card, render_monthly_kpis_card
-from nominas.ui.charts import render_comparison_charts
-from nominas.ui.quality import render_metric_definitions, render_quality_sections
-from nominas.ui.style import apply_app_styles
-from nominas.ui.tables import render_breakdown, render_monthly_detail
+from nominas_app.ui.cards import render_annual_kpis_card, render_monthly_kpis_card
+from nominas_app.ui.charts import render_comparison_charts
+from nominas_app.ui.quality import render_metric_definitions, render_quality_sections
+from nominas_app.ui.style import apply_app_styles
+from nominas_app.ui.tables import render_breakdown, render_monthly_detail
 
 
 @st.cache_data(ttl=300)

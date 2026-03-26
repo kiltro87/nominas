@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import format_eur
-from nominas.services.dashboard_data import parse_spanish_amount_series
-from nominas.ui.formatting import apply_privacy_to_columns, show_compact_eur, zebra_styler
+from nominas_app.services.dashboard_data import parse_spanish_amount_series
+from nominas_app.ui.formatting import apply_privacy_to_columns, show_compact_eur, zebra_styler
 
 
 def render_monthly_detail(monthly_view: pd.DataFrame, hide_amounts: bool) -> None:
