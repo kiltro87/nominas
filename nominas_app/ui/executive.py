@@ -122,6 +122,77 @@ def _build_annual_summary_table(annual_view: pd.DataFrame, hide_amounts: bool) -
     return table.reset_index(drop=True)
 
 
+def _build_month_comparison(monthly_all: pd.DataFrame, monthly_view: pd.DataFrame, compare_mode: str) -> tuple[pd.Series | None, pd.Series | None]:
+    if compare_mode == "Sin comparación" or monthly_view.empty:
+        return None, None
+    monthly_sorted = monthly_all.sort_values(["Año", "Mes"]).reset_index(drop=True)
+    cur = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
+    cur_year, cur_month = int(cur["Año"]), int(cur["Mes"])
+    cmp_row = None
+    if compare_mode == "Mes anterior":
+        prev = monthly_sorted[
+            (monthly_sorted["Año"] < cur_year) | ((monthly_sorted["Año"] == cur_year) & (monthly_sorted["Mes"] < cur_month))
+        ]
+        if not prev.empty:
+            cmp_row = prev.iloc[-1]
+    elif compare_mode == "Mismo mes año anterior":
+        prev = monthly_sorted[(monthly_sorted["Año"] == cur_year - 1) & (monthly_sorted["Mes"] == cur_month)]
+        if not prev.empty:
+            cmp_row = prev.iloc[-1]
+    return cur, cmp_row
+
+
+def _render_period_comparison(monthly_all: pd.DataFrame, monthly_view: pd.DataFrame, compare_mode: str, hide_amounts: bool) -> None:
+    with st.container(border=True):
+        st.markdown("##### Comparativa del periodo")
+        cur, cmp_row = _build_month_comparison(monthly_all=monthly_all, monthly_view=monthly_view, compare_mode=compare_mode)
+        if compare_mode == "Sin comparación":
+            st.info("Selecciona 'Comparar contra' para activar esta sección.")
+            return
+        if cur is None or cmp_row is None:
+            st.info("No hay referencia suficiente para la comparación seleccionada.")
+            return
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Bruto", show_eur(float(cur["total_devengado"]), hide_amounts), delta=format_eur(float(cur["total_devengado"] - cmp_row["total_devengado"])))
+        c2.metric("Neto", show_eur(float(cur["neto"]), hide_amounts), delta=format_eur(float(cur["neto"] - cmp_row["neto"])))
+        c3.metric("% IRPF", f"{float(cur['pct_irpf']) * 100:.2f}%", delta=f"{(float(cur['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
+
+
+def _render_equity_block(monthly_view: pd.DataFrame, annual_selected: pd.Series, hide_amounts: bool) -> None:
+    with st.container(border=True):
+        st.markdown("##### ESPP, RSU y plan de acciones")
+        espp = float(annual_selected["espp_gain"])
+        rsu = float(annual_selected["rsu_gain"])
+        plan_neto = float(annual_selected["espp_neto_estimado"] + annual_selected["rsu_neto_estimado"])
+        c1, c2, c3 = st.columns(3)
+        c1.metric("ESPP (bruto anual)", show_eur(espp, hide_amounts))
+        c2.metric("RSU (bruto anual)", show_eur(rsu, hide_amounts))
+        c3.metric("Plan de acciones (neto estimado)", show_eur(plan_neto, hide_amounts))
+
+        detail = monthly_view[["Periodo_natural", "espp_gain", "rsu_gain", "espp_neto_estimado", "rsu_neto_estimado"]].copy()
+        detail = detail.rename(
+            columns={
+                "Periodo_natural": "Periodo",
+                "espp_gain": "ESPP bruto",
+                "rsu_gain": "RSU bruto",
+                "espp_neto_estimado": "ESPP neto est.",
+                "rsu_neto_estimado": "RSU neto est.",
+            }
+        )
+        non_zero = (
+            pd.to_numeric(detail["ESPP bruto"], errors="coerce").fillna(0.0) != 0.0
+        ) | (
+            pd.to_numeric(detail["RSU bruto"], errors="coerce").fillna(0.0) != 0.0
+        )
+        detail = detail[non_zero].reset_index(drop=True)
+        if detail.empty:
+            st.info("Sin movimientos de ESPP/RSU para el filtro actual.")
+            return
+        for col in ["ESPP bruto", "RSU bruto", "ESPP neto est.", "RSU neto est."]:
+            detail[col] = detail[col].apply(lambda x: "••••••" if hide_amounts else format_eur(float(x)))
+        st.dataframe(zebra_styler(detail), width="stretch")
+
+
 def _render_supporting_tables(
     monthly_view: pd.DataFrame,
     nominas_view: pd.DataFrame,
@@ -169,9 +240,12 @@ def _render_supporting_tables(
 
 def render_executive_dashboard(
     monthly_view: pd.DataFrame,
+    monthly_all: pd.DataFrame,
     annual_view: pd.DataFrame,
+    annual_all: pd.DataFrame,
     monthly_year_scope: pd.DataFrame,
     year_option: int | str,
+    compare_mode: str,
     hide_amounts: bool,
     quality_rows: list[dict[str, str]],
     nominas_view: pd.DataFrame,
@@ -181,10 +255,14 @@ def render_executive_dashboard(
         st.caption("Vista ejecutiva Hybrid Premium (sin reemplazar el dashboard actual).")
 
     latest_year = annual_view.sort_values("Año").iloc[-1]
-    prev_year = annual_view.sort_values("Año").iloc[-2] if len(annual_view) > 1 else None
+    prev_year = annual_all[annual_all["Año"] == int(latest_year["Año"]) - 1]
+    prev_year_row = prev_year.iloc[-1] if not prev_year.empty else None
 
     bruto_delta = (
-        float(latest_year["total_devengado"] - prev_year["total_devengado"]) if prev_year is not None else None
+        float(latest_year["total_devengado"] - prev_year_row["total_devengado"]) if prev_year_row is not None else None
+    )
+    neto_medio_delta = (
+        float(latest_year["media_neto_mensual"] - prev_year_row["media_neto_mensual"]) if prev_year_row is not None else None
     )
     bonus_total = float(latest_year["espp_gain"] + latest_year["rsu_gain"])
 
@@ -199,7 +277,11 @@ def render_executive_dashboard(
                 delta=(format_eur(bruto_delta) if bruto_delta is not None else None),
             )
         with c2:
-            c2.metric("Nomina neta media mensual", show_eur(float(latest_year["media_neto_mensual"]), hide_amounts))
+            c2.metric(
+                "Nomina neta media mensual",
+                show_eur(float(latest_year["media_neto_mensual"]), hide_amounts),
+                delta=(format_eur(neto_medio_delta) if neto_medio_delta is not None else None),
+            )
         with c3:
             c3.metric("Deducciones YTD", show_eur(float(latest_year["total_deducir"]), hide_amounts))
         with c4:
@@ -256,6 +338,17 @@ def render_executive_dashboard(
             )
             st.altair_chart(donut, use_container_width=True)
 
+    _render_period_comparison(
+        monthly_all=monthly_all,
+        monthly_view=monthly_view,
+        compare_mode=compare_mode,
+        hide_amounts=hide_amounts,
+    )
+    _render_equity_block(
+        monthly_view=monthly_view,
+        annual_selected=latest_year,
+        hide_amounts=hide_amounts,
+    )
     _render_supporting_tables(
         monthly_view=monthly_view,
         nominas_view=nominas_view,

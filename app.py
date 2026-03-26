@@ -158,9 +158,12 @@ with tab_actual:
 with tab_ejecutivo:
     render_executive_dashboard(
         monthly_view=monthly_view,
+        monthly_all=monthly,
         annual_view=annual_view,
+        annual_all=annual,
         monthly_year_scope=monthly_year_scope,
         year_option=year_option,
+        compare_mode=compare_mode,
         hide_amounts=hide_amounts,
         quality_rows=quality_rows,
         nominas_view=nominas_view,
