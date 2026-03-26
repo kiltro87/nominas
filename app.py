@@ -10,6 +10,7 @@ from nominas_app.services.dashboard_data import (
 )
 from nominas_app.ui.cards import render_annual_kpis_card, render_monthly_kpis_card
 from nominas_app.ui.charts import render_comparison_charts
+from nominas_app.ui.executive import render_executive_dashboard
 from nominas_app.ui.quality import render_metric_definitions, render_quality_sections
 from nominas_app.ui.style import apply_app_styles
 from nominas_app.ui.tables import render_breakdown, render_monthly_detail
@@ -92,39 +93,52 @@ alertas, quality_rows = build_quality_alerts(
 if alertas:
     st.warning(" | ".join(alertas))
 
-render_monthly_kpis_card(
-    monthly_view=monthly_view,
-    monthly=monthly,
-    year_option=year_option,
-    period_option=period_option,
-    compare_mode=compare_mode,
-    raw_nominas=df_nominas,
-    hide_amounts=hide_amounts,
-)
-render_annual_kpis_card(
-    annual_view=annual_view,
-    monthly=monthly,
-    monthly_view=monthly_view,
-    year_option=year_option,
-    hide_amounts=hide_amounts,
-)
-render_comparison_charts(
-    annual_view=annual_view,
-    monthly_view=monthly_view,
-    year_option=year_option,
-    period_option=period_option,
-    hide_amounts=hide_amounts,
-)
-render_monthly_detail(monthly_view=monthly_view, hide_amounts=hide_amounts)
-render_breakdown(
-    nominas_view=nominas_view,
-    monthly_view=monthly_view,
-    period_option=period_option,
-    hide_amounts=hide_amounts,
-)
-render_quality_sections(
-    quality_rows=quality_rows,
-    nominas_view=nominas_view,
-    monthly=monthly,
-)
-render_metric_definitions()
+tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
+
+with tab_actual:
+    render_monthly_kpis_card(
+        monthly_view=monthly_view,
+        monthly=monthly,
+        year_option=year_option,
+        period_option=period_option,
+        compare_mode=compare_mode,
+        raw_nominas=df_nominas,
+        hide_amounts=hide_amounts,
+    )
+    render_annual_kpis_card(
+        annual_view=annual_view,
+        monthly=monthly,
+        monthly_view=monthly_view,
+        year_option=year_option,
+        hide_amounts=hide_amounts,
+    )
+    render_comparison_charts(
+        annual_view=annual_view,
+        monthly_view=monthly_view,
+        year_option=year_option,
+        period_option=period_option,
+        hide_amounts=hide_amounts,
+    )
+    render_monthly_detail(monthly_view=monthly_view, hide_amounts=hide_amounts)
+    render_breakdown(
+        nominas_view=nominas_view,
+        monthly_view=monthly_view,
+        period_option=period_option,
+        hide_amounts=hide_amounts,
+    )
+    render_quality_sections(
+        quality_rows=quality_rows,
+        nominas_view=nominas_view,
+        monthly=monthly,
+    )
+    render_metric_definitions()
+
+with tab_ejecutivo:
+    render_executive_dashboard(
+        monthly_view=monthly_view,
+        annual_view=annual_view,
+        monthly_year_scope=monthly_year_scope,
+        year_option=year_option,
+        hide_amounts=hide_amounts,
+        quality_rows=quality_rows,
+    )
