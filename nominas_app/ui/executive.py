@@ -29,7 +29,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
-            color=alt.Color("Métrica:N", scale=alt.Scale(range=["#3b82f6", "#22c55e"])),
+            color=alt.Color("Métrica:N", title="Salario", scale=alt.Scale(range=["#3b82f6", "#22c55e"])),
             tooltip=["Año:O", "Métrica:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
@@ -46,7 +46,11 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
         .encode(
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),
-            color=alt.Color("BonusTipo:N", scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"])),
+            color=alt.Color(
+                "BonusTipo:N",
+                title="Bonus",
+                scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"]),
+            ),
             tooltip=["Año:O", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
