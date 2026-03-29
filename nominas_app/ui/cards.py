@@ -117,20 +117,97 @@ def render_annual_kpis_card(
             annual_title += " (último año disponible)"
         st.subheader(annual_title)
         y = annual_view.sort_values("Año").iloc[-1]
+        latest_available_year = int(monthly["Año"].max())
+        selected_year = int(y["Año"])
+        show_yoy = selected_year < latest_available_year
+        prev_year_agg = None
+        if show_yoy:
+            annual_from_monthly = (
+                monthly.groupby("Año", as_index=False)[
+                    [
+                        "total_devengado",
+                        "neto",
+                        "irpf_importe",
+                        "consumo_especie",
+                        "ingresos_libres_impuestos",
+                        "ahorro_fiscal",
+                        "riqueza_real_mensual",
+                    ]
+                ]
+                .sum()
+                .sort_values("Año")
+            )
+            prev = annual_from_monthly[annual_from_monthly["Año"] == selected_year - 1]
+            if not prev.empty:
+                prev_year_agg = prev.iloc[-1]
+
+        def yoy_pct_delta(current: float, previous: float | None) -> str | None:
+            if previous is None or float(previous) == 0.0:
+                return None
+            return f"{((float(current) - float(previous)) / float(previous)) * 100:.2f}% YoY"
+
+        def yoy_pp_delta(current: float, previous: float | None) -> str | None:
+            if previous is None:
+                return None
+            return f"{(float(current) - float(previous)) * 100:.2f} pp YoY"
+
         irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
         a1, a2, a3, a4, a5 = st.columns(5)
-        metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"]), hide_amounts))
-        metric_with_help(a2, "Neto", show_eur(float(y["neto"]), hide_amounts))
-        metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%")
-        metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%")
-        metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"]), hide_amounts))
+        bruto_delta = yoy_pct_delta(
+            float(y["total_devengado"]),
+            float(prev_year_agg["total_devengado"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
+        neto_delta = yoy_pct_delta(
+            float(y["neto"]),
+            float(prev_year_agg["neto"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
+        prev_irpf_efectivo = (
+            float(prev_year_agg["irpf_importe"]) / float(prev_year_agg["total_devengado"])
+            if (prev_year_agg is not None and float(prev_year_agg["total_devengado"]) != 0.0)
+            else None
+        )
+        irpf_efectivo_delta = yoy_pp_delta(float(y["pct_irpf_efectivo_anual"]), prev_irpf_efectivo) if show_yoy else None
+        prev_irpf_medio = (
+            monthly[monthly["Año"] == selected_year - 1]["pct_irpf"].mean()
+            if show_yoy and (selected_year - 1) in set(monthly["Año"].astype(int).tolist())
+            else None
+        )
+        irpf_medio_delta = yoy_pp_delta(float(irpf_medio), float(prev_irpf_medio)) if (show_yoy and prev_irpf_medio is not None) else None
+        ingresos_totales_delta = yoy_pct_delta(
+            float(y["riqueza_real_anual"]),
+            float(prev_year_agg["riqueza_real_mensual"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
+
+        metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"]), hide_amounts), delta=bruto_delta)
+        metric_with_help(a2, "Neto", show_eur(float(y["neto"]), hide_amounts), delta=neto_delta)
+        metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%", delta=irpf_efectivo_delta)
+        metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
+        metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"]), hide_amounts), delta=ingresos_totales_delta)
 
         b1, b2, b3, b4, b5 = st.columns(5)
-        metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts))
-        metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts))
-        metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts))
-        b5.metric("Delta neto vs año anterior", show_eur(float(y["delta_neto_vs_anterior"]), hide_amounts))
-        b1.metric("% crecimiento neto YoY", f"{float(y['pct_crecimiento_neto_yoy']) * 100:.2f}%")
+        ahorro_fiscal_delta = yoy_pct_delta(
+            float(y["ahorro_fiscal"]),
+            float(prev_year_agg["ahorro_fiscal"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
+        libres_imp_delta = yoy_pct_delta(
+            float(y["ingresos_libres_impuestos"]),
+            float(prev_year_agg["ingresos_libres_impuestos"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
+        consumo_especie_delta = yoy_pct_delta(
+            float(y["consumo_especie"]),
+            float(prev_year_agg["consumo_especie"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
+        if show_yoy and neto_delta is not None:
+            b1.metric("Crecimiento neto YoY", neto_delta)
+        else:
+            b1.metric("Crecimiento neto YoY", "N/A")
+        if show_yoy and prev_year_agg is not None:
+            b2.metric("Delta neto vs año anterior", show_eur(float(y["neto"] - prev_year_agg["neto"]), hide_amounts))
+        else:
+            b2.metric("Delta neto vs año anterior", "N/A")
+        metric_with_help(b3, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
+        metric_with_help(b4, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts), delta=libres_imp_delta)
+        metric_with_help(b5, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
 
         block_left, block_right = st.columns([3, 2])
         with block_left:
