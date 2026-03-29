@@ -71,20 +71,6 @@ def render_monthly_kpis_card(
             if c4 is not None:
                 metric_with_help(c4, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"]), hide_amounts))
 
-        ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
-        if columns_per_row == 3:
-            row2 = st.columns(3)
-            metric_with_help(row2[0], "Ingresos totales", show_eur(float(m["riqueza_real_mensual"]), hide_amounts))
-            metric_with_help(row2[1], "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"]), hide_amounts))
-            metric_with_help(row2[2], "Ahorro jubilación", show_eur(ahorro_jub_mensual, hide_amounts))
-            row3 = st.columns(3)
-            metric_with_help(row3[0], "Consumo en especie", show_eur(float(m["consumo_especie"]), hide_amounts))
-        else:
-            c5, c6, c8 = st.columns(3)
-            metric_with_help(c5, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"]), hide_amounts))
-            metric_with_help(c6, "Ahorro jubilación", show_eur(ahorro_jub_mensual, hide_amounts))
-            metric_with_help(c8, "Consumo en especie", show_eur(float(m["consumo_especie"]), hide_amounts))
-
         if cmp_row is not None:
             with st.expander("Explicar delta (Top 5 conceptos)"):
                 raw_comp = raw_nominas.copy()
@@ -148,6 +134,7 @@ def render_annual_kpis_card(
                         "consumo_especie",
                         "ingresos_libres_impuestos",
                         "ahorro_fiscal",
+                        "ahorro_jub_total",
                         "riqueza_real_mensual",
                     ]
                 ]
@@ -207,6 +194,10 @@ def render_annual_kpis_card(
             float(y["ahorro_fiscal"]),
             float(prev_year_agg["ahorro_fiscal"]) if prev_year_agg is not None else None,
         ) if show_yoy else None
+        ahorro_jub_delta = yoy_pct_delta(
+            float(y["ahorro_jub_total"]),
+            float(prev_year_agg["ahorro_jub_total"]) if prev_year_agg is not None else None,
+        ) if show_yoy else None
         consumo_especie_delta = yoy_pct_delta(
             float(y["consumo_especie"]),
             float(prev_year_agg["consumo_especie"]) if prev_year_agg is not None else None,
@@ -217,11 +208,13 @@ def render_annual_kpis_card(
             metric_with_help(row2[1], "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
             metric_with_help(row2[2], "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
             row3 = st.columns(3)
-            metric_with_help(row3[0], "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
+            metric_with_help(row3[0], "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"]), hide_amounts), delta=ahorro_jub_delta)
+            metric_with_help(row3[1], "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
         else:
-            b1, b2, b4 = st.columns(3)
+            b1, b2, b3, b4 = st.columns(4)
             metric_with_help(b1, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
             metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
+            metric_with_help(b3, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"]), hide_amounts), delta=ahorro_jub_delta)
             metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
 
         block_left, block_right = st.columns([3, 2])
