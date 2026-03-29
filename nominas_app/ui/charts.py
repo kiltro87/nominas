@@ -7,8 +7,17 @@ import streamlit as st
 from nominas_app.ui.palette import COLOR_1, COLOR_5, legend_circle, ordered_scale
 
 
+def _coerce_finite(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    out = df.copy()
+    for col in cols:
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+    out[cols] = out[cols].replace([float("inf"), float("-inf")], pd.NA).fillna(0.0)
+    return out
+
+
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
+    chart_df = _coerce_finite(chart_df, ["total_devengado", "neto", "espp_gain", "rsu_gain"])
     if hide_amounts:
         chart_df[["total_devengado", "neto", "espp_gain", "rsu_gain"]] = 0.0
 
@@ -62,6 +71,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
 
 def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     chart_df = monthly_view[["Periodo_natural", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
+    chart_df = _coerce_finite(chart_df, ["total_devengado", "neto", "espp_gain", "rsu_gain"])
     if hide_amounts:
         chart_df[["total_devengado", "neto", "espp_gain", "rsu_gain"]] = 0.0
 
@@ -164,6 +174,7 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
             {"periodo": "YTD", "componente": "Otras deducciones", "importe": otras_deducciones},
         ]
     )
+    breakdown = _coerce_finite(breakdown, ["importe"])
     return (
         alt.Chart(breakdown)
         .mark_bar(opacity=0.3)
@@ -183,6 +194,7 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
 
 def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     df = monthly_year_scope[["Periodo_natural", "ahorro_fiscal", "ahorro_jub_total", "consumo_especie"]].copy()
+    df = _coerce_finite(df, ["ahorro_fiscal", "ahorro_jub_total", "consumo_especie"])
     if hide_amounts:
         df[["ahorro_fiscal", "ahorro_jub_total", "consumo_especie"]] = 0.0
     long_df = df.melt(
@@ -198,6 +210,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
             "consumo_especie": "Consumo en especie",
         }
     )
+    long_df = _coerce_finite(long_df, ["Importe"])
     order = df["Periodo_natural"].tolist()
     return (
         alt.Chart(long_df)
@@ -236,6 +249,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
             "RSU neto estimado",
         ]
     ]
+    plot_df = _coerce_finite(plot_df, ["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"])
     if hide_amounts:
         plot_df[
             ["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]
@@ -246,6 +260,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
         var_name="Fuente",
         value_name="Importe",
     )
+    long_df = _coerce_finite(long_df, ["Importe"])
     order = plot_df["Periodo_natural"].tolist()
     return (
         alt.Chart(long_df)

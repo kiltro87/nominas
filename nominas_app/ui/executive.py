@@ -14,8 +14,17 @@ from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
 from nominas_app.ui.palette import COLOR_1, COLOR_5, legend_circle, ordered_scale
 
 
+def _coerce_finite(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    out = df.copy()
+    for col in cols:
+        out[col] = pd.to_numeric(out[col], errors="coerce")
+    out[cols] = out[cols].replace([float("inf"), float("-inf")], pd.NA).fillna(0.0)
+    return out
+
+
 def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
+    chart_df = _coerce_finite(chart_df, ["total_devengado", "neto", "espp_gain", "rsu_gain"])
     if hide_amounts:
         chart_df[["total_devengado", "neto", "espp_gain", "rsu_gain"]] = 0.0
 
@@ -71,6 +80,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
 def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
     month_df = monthly_year_scope[["Periodo_natural", "pct_irpf"]].copy()
     month_df["IRPF_real"] = pd.to_numeric(month_df["pct_irpf"], errors="coerce").fillna(0.0) * 100
+    month_df = _coerce_finite(month_df, ["IRPF_real"])
     values = pd.to_numeric(month_df["IRPF_real"], errors="coerce").dropna()
     if values.empty:
         y_scale = alt.Scale(zero=True)
