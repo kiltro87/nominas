@@ -30,7 +30,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
 
     line = (
         alt.Chart(long_df)
-        .mark_line(point=True, strokeWidth=2.5, zindex=3)
+        .mark_line(point=True, strokeWidth=2.5)
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
@@ -98,7 +98,7 @@ def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
     )
     rule = (
         alt.Chart(target_df)
-        .mark_rule(color=COLOR_5, strokeDash=[6, 4], zindex=4)
+        .mark_rule(color=COLOR_5, strokeDash=[6, 4])
         .encode(y="Objetivo:Q", tooltip=[alt.Tooltip("Objetivo:Q", format=".2f")])
     )
     return (line + rule).properties(height=240, title="Seguimiento de IRPF (anual)")

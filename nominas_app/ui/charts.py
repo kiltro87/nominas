@@ -22,7 +22,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
 
     line = (
         alt.Chart(long_df)
-        .mark_line(point=True, strokeWidth=2.5, zindex=3)
+        .mark_line(point=True, strokeWidth=2.5)
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
@@ -75,7 +75,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
     order = chart_df["Periodo_natural"].tolist()
     line = (
         alt.Chart(long_df)
-        .mark_line(point=True, strokeWidth=2.5, zindex=3)
+        .mark_line(point=True, strokeWidth=2.5)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€"),
@@ -142,7 +142,7 @@ def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: 
             tooltip=[f"{x_col}:N", alt.Tooltip("IRPF:Q", format=".2f")],
         )
     )
-    rule = alt.Chart(target_df).mark_rule(color=COLOR_5, strokeDash=[6, 4], zindex=4).encode(y="target:Q")
+    rule = alt.Chart(target_df).mark_rule(color=COLOR_5, strokeDash=[6, 4]).encode(y="target:Q")
     return (line + rule).properties(height=300, title=title)
 
 
