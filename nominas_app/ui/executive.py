@@ -8,6 +8,13 @@ from kpi_builder import format_eur
 from nominas_app.services.dashboard_data import parse_spanish_amount_series
 from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
 
+# Unified ordered palette aligned with charts.py
+COLOR_1 = "#3b82f6"
+COLOR_2 = "#14b8a6"
+COLOR_3 = "#f59e0b"
+COLOR_4 = "#a855f7"
+COLOR_5 = "#94a3b8"
+
 
 def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
@@ -29,7 +36,11 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
-            color=alt.Color("Salario:N", title="Salario", scale=alt.Scale(range=["#3b82f6", "#22c55e"])),
+            color=alt.Color(
+                "Salario:N",
+                title="Salario",
+                scale=alt.Scale(domain=["Bruto", "Neto"], range=[COLOR_1, COLOR_2]),
+            ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
@@ -49,7 +60,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             color=alt.Color(
                 "Bonus:N",
                 title="Bonus",
-                scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"]),
+                scale=alt.Scale(domain=["ESPP", "RSU"], range=[COLOR_3, COLOR_4]),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -80,7 +91,7 @@ def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
 
     line = (
         alt.Chart(month_df)
-        .mark_line(point=True, color="#14b8a6", strokeWidth=2.5)
+        .mark_line(point=True, color=COLOR_2, strokeWidth=2.5)
         .encode(
             x=alt.X("Periodo_natural:N", sort=month_df["Periodo_natural"].tolist(), title="Periodo"),
             y=alt.Y("IRPF_real:Q", title="% IRPF", scale=y_scale),
@@ -89,7 +100,7 @@ def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
     )
     rule = (
         alt.Chart(target_df)
-        .mark_rule(color="#475569", strokeDash=[6, 4])
+        .mark_rule(color=COLOR_5, strokeDash=[6, 4])
         .encode(y="Objetivo:Q", tooltip=[alt.Tooltip("Objetivo:Q", format=".2f")])
     )
     return (line + rule).properties(height=240, title="Seguimiento de IRPF (anual)")
@@ -356,7 +367,7 @@ def render_executive_dashboard(
                     theta="Importe:Q",
                     color=alt.Color(
                         "Categoria:N",
-                        scale=alt.Scale(range=["#14b8a6", "#f59e0b", "#3b82f6"]),
+                    scale=alt.Scale(range=[COLOR_2, COLOR_3, COLOR_1]),
                     ),
                     tooltip=["Categoria:N", alt.Tooltip("Importe:Q", format=",.2f")],
                 )
