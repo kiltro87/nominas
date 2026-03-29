@@ -15,6 +15,7 @@ from nominas_app.services.dashboard_data import (
 from nominas_app.ui.cards import render_annual_kpis_card, render_monthly_kpis_card
 from nominas_app.ui.charts import render_comparison_charts
 from nominas_app.ui.executive import render_executive_dashboard
+from nominas_app.ui.intelligence import render_payroll_intelligence
 from nominas_app.ui.quality import render_quality_sections
 from nominas_app.ui.style import apply_app_styles
 from nominas_app.ui.tables import render_breakdown, render_monthly_detail
@@ -35,12 +36,16 @@ st.title("Análisis de Nóminas")
 apply_app_styles()
 
 
-def _render_empty_tabs(actual_msg: str, ejecutivo_msg: str) -> None:
-    tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
+def _render_empty_tabs(actual_msg: str, ejecutivo_msg: str, intelligence_msg: str) -> None:
+    tab_actual, tab_ejecutivo, tab_intelligence = st.tabs(
+        ["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)", "Payroll Intelligence"]
+    )
     with tab_actual:
         st.info(actual_msg)
     with tab_ejecutivo:
         st.info(ejecutivo_msg)
+    with tab_intelligence:
+        st.info(intelligence_msg)
 
 df_nominas = load_nominas_cached()
 if df_nominas.empty:
@@ -52,6 +57,7 @@ if df_nominas.empty:
     _render_empty_tabs(
         "No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.",
         "El dashboard ejecutivo necesita datos de 'Nominas'. Configura secrets/acceso a Google Sheets y recarga.",
+        "Payroll Intelligence necesita datos de 'Nominas'. Configura acceso y recarga.",
     )
     st.stop()
 
@@ -65,6 +71,7 @@ if monthly.empty or annual.empty:
     _render_empty_tabs(
         "No hay suficientes datos para construir KPIs agregados todavía.",
         "Sin datos agregados suficientes para la vista ejecutiva.",
+        "Sin datos agregados suficientes para Payroll Intelligence.",
     )
     st.stop()
 
@@ -119,7 +126,9 @@ alertas, quality_rows = build_quality_alerts(
 if alertas:
     st.warning(" | ".join(alertas))
 
-tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
+tab_actual, tab_ejecutivo, tab_intelligence = st.tabs(
+    ["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)", "Payroll Intelligence"]
+)
 
 with tab_actual:
     render_monthly_kpis_card(
@@ -171,4 +180,12 @@ with tab_ejecutivo:
         hide_amounts=hide_amounts,
         quality_rows=quality_rows,
         nominas_view=nominas_view,
+    )
+
+with tab_intelligence:
+    render_payroll_intelligence(
+        annual_view=annual_view,
+        monthly_view=monthly_view,
+        year_option=year_option,
+        hide_amounts=hide_amounts,
     )
