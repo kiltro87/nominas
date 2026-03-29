@@ -28,6 +28,7 @@ def load_nominas_cached() -> pd.DataFrame:
 
 st.set_page_config(page_title="Análisis de Nóminas", layout="wide")
 st.title("Análisis de Nóminas")
+st.caption("Build main: 2026-03-29-kpi-refresh")
 apply_app_styles()
 
 df_nominas = load_nominas_cached()
