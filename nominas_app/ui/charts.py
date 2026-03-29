@@ -7,12 +7,11 @@ import streamlit as st
 
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
-    chart_df["bonus_acciones"] = chart_df["espp_gain"] + chart_df["rsu_gain"]
     if hide_amounts:
-        chart_df[["total_devengado", "neto", "bonus_acciones"]] = 0.0
+        chart_df[["total_devengado", "neto", "espp_gain", "rsu_gain"]] = 0.0
 
     long_df = chart_df.melt(
-        id_vars=["Año", "bonus_acciones"],
+        id_vars=["Año"],
         value_vars=["total_devengado", "neto"],
         var_name="Métrica",
         value_name="Importe",
@@ -29,13 +28,21 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             tooltip=["Año:O", "Métrica:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
+    bonus_df = chart_df.melt(
+        id_vars=["Año"],
+        value_vars=["espp_gain", "rsu_gain"],
+        var_name="BonusTipo",
+        value_name="Importe",
+    )
+    bonus_df["BonusTipo"] = bonus_df["BonusTipo"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
-        alt.Chart(chart_df)
-        .mark_bar(opacity=0.30, color="#f59e0b")
+        alt.Chart(bonus_df)
+        .mark_bar(opacity=0.35)
         .encode(
             x=alt.X("Año:O"),
-            y=alt.Y("bonus_acciones:Q", title="€"),
-            tooltip=["Año:O", alt.Tooltip("bonus_acciones:Q", format=",.2f")],
+            y=alt.Y("Importe:Q", title="€", stack=True),
+            color=alt.Color("BonusTipo:N", scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"])),
+            tooltip=["Año:O", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
     return (bars + line).properties(height=300, title="Evolución multianual: Bruto, Neto y Bonus/Acciones")
@@ -43,12 +50,11 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
 
 def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     chart_df = monthly_view[["Periodo_natural", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
-    chart_df["bonus_acciones"] = chart_df["espp_gain"] + chart_df["rsu_gain"]
     if hide_amounts:
-        chart_df[["total_devengado", "neto", "bonus_acciones"]] = 0.0
+        chart_df[["total_devengado", "neto", "espp_gain", "rsu_gain"]] = 0.0
 
     long_df = chart_df.melt(
-        id_vars=["Periodo_natural", "bonus_acciones"],
+        id_vars=["Periodo_natural"],
         value_vars=["total_devengado", "neto"],
         var_name="Métrica",
         value_name="Importe",
@@ -65,13 +71,21 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             tooltip=["Periodo_natural:N", "Métrica:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
+    bonus_df = chart_df.melt(
+        id_vars=["Periodo_natural"],
+        value_vars=["espp_gain", "rsu_gain"],
+        var_name="BonusTipo",
+        value_name="Importe",
+    )
+    bonus_df["BonusTipo"] = bonus_df["BonusTipo"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
-        alt.Chart(chart_df)
-        .mark_bar(opacity=0.30, color="#f59e0b")
+        alt.Chart(bonus_df)
+        .mark_bar(opacity=0.35)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order),
-            y=alt.Y("bonus_acciones:Q", title="€"),
-            tooltip=["Periodo_natural:N", alt.Tooltip("bonus_acciones:Q", format=",.2f")],
+            y=alt.Y("Importe:Q", title="€", stack=True),
+            color=alt.Color("BonusTipo:N", scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"])),
+            tooltip=["Periodo_natural:N", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
     return (bars + line).properties(height=300, title="Evolución mensual: Bruto, Neto y Bonus/Acciones")
