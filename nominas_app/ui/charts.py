@@ -34,7 +34,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=alt.Scale(domain=["Bruto", "Neto"], range=[COLOR_1, COLOR_2]),
+                scale=alt.Scale(domain=["Neto", "Bruto"], range=[COLOR_1, COLOR_2]),
             ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -87,7 +87,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=alt.Scale(domain=["Bruto", "Neto"], range=[COLOR_1, COLOR_2]),
+                scale=alt.Scale(domain=["Neto", "Bruto"], range=[COLOR_1, COLOR_2]),
             ),
             tooltip=["Periodo_natural:N", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
