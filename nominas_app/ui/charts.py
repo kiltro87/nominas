@@ -5,6 +5,42 @@ import pandas as pd
 import streamlit as st
 
 
+def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
+    chart_df["bonus_acciones"] = chart_df["espp_gain"] + chart_df["rsu_gain"]
+    if hide_amounts:
+        chart_df[["total_devengado", "neto", "bonus_acciones"]] = 0.0
+
+    long_df = chart_df.melt(
+        id_vars=["Año", "bonus_acciones"],
+        value_vars=["total_devengado", "neto"],
+        var_name="Métrica",
+        value_name="Importe",
+    )
+    long_df["Métrica"] = long_df["Métrica"].map({"total_devengado": "Bruto", "neto": "Neto"})
+
+    line = (
+        alt.Chart(long_df)
+        .mark_line(point=True, strokeWidth=2.5)
+        .encode(
+            x=alt.X("Año:O", title="Año"),
+            y=alt.Y("Importe:Q", title="€"),
+            color=alt.Color("Métrica:N", scale=alt.Scale(range=["#3b82f6", "#22c55e"])),
+            tooltip=["Año:O", "Métrica:N", alt.Tooltip("Importe:Q", format=",.2f")],
+        )
+    )
+    bars = (
+        alt.Chart(chart_df)
+        .mark_bar(opacity=0.30, color="#f59e0b")
+        .encode(
+            x=alt.X("Año:O"),
+            y=alt.Y("bonus_acciones:Q", title="€"),
+            tooltip=["Año:O", alt.Tooltip("bonus_acciones:Q", format=",.2f")],
+        )
+    )
+    return (bars + line).properties(height=300, title="Evolución multianual: Bruto, Neto y Bonus/Acciones")
+
+
 def draw_monthly_chart(df: pd.DataFrame, y_columns: list[str], title: str, percent_scale: bool = False) -> None:
     chart_df = df.copy()
     for c in y_columns:
@@ -58,38 +94,10 @@ def render_comparison_charts(
     st.subheader("Comparativa y evolución")
     if year_option == "Todos" and period_option == "Todos":
         ch1, ch2 = st.columns(2)
-        annual_amount_chart = annual_view[["Año", "total_devengado", "neto"]].copy()
-        annual_amount_chart["ingresos_recibidos"] = (
-            annual_view["neto"]
-            + annual_view["consumo_especie"]
-            + annual_view["ahorro_jub_total"]
-            + annual_view["espp_neto_estimado"]
-            + annual_view["rsu_neto_estimado"]
-        )
-        annual_amount_chart = annual_amount_chart.rename(
-            columns={
-                "total_devengado": "Salario Bruto",
-                "neto": "Salario Neto",
-                "ingresos_recibidos": "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-            }
-        )
-        if hide_amounts:
-            annual_amount_chart[
-                [
-                    "Salario Bruto",
-                    "Salario Neto",
-                    "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                ]
-            ] = 0.0
         with ch1:
-            st.line_chart(
-                annual_amount_chart.set_index("Año")[
-                    [
-                        "Salario Bruto",
-                        "Salario Neto",
-                        "Ingresos recibidos (incluyendo Tickets, pensión y acciones)",
-                    ]
-                ]
+            st.altair_chart(
+                _build_multiyear_bruto_neto_bonus_chart(annual_view=annual_view, hide_amounts=hide_amounts),
+                use_container_width=True,
             )
         annual_pct_chart = annual_view[["Año", "pct_irpf_efectivo_anual"]].copy()
         annual_pct_chart["% IRPF efectivo anual"] = annual_pct_chart["pct_irpf_efectivo_anual"] * 100

@@ -49,6 +49,19 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
 def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
     month_df = monthly_year_scope[["Periodo_natural", "pct_irpf"]].copy()
     month_df["IRPF_real"] = pd.to_numeric(month_df["pct_irpf"], errors="coerce").fillna(0.0) * 100
+    values = pd.to_numeric(month_df["IRPF_real"], errors="coerce").dropna()
+    if values.empty:
+        y_scale = alt.Scale(zero=True)
+    else:
+        vmin = float(values.min())
+        vmax = float(values.max())
+        if vmin == vmax:
+            pad = max(abs(vmin) * 0.05, 0.5)
+            domain = [vmin - pad, vmax + pad]
+        else:
+            pad = (vmax - vmin) * 0.10
+            domain = [vmin - pad, vmax + pad]
+        y_scale = alt.Scale(domain=domain, zero=False, nice=True)
     mean_value = float(month_df["IRPF_real"].mean()) if not month_df.empty else 0.0
     target_df = pd.DataFrame({"Objetivo": [mean_value], "k": [0]})
 
@@ -57,7 +70,7 @@ def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
         .mark_line(point=True, color="#14b8a6", strokeWidth=2.5)
         .encode(
             x=alt.X("Periodo_natural:N", sort=month_df["Periodo_natural"].tolist(), title="Periodo"),
-            y=alt.Y("IRPF_real:Q", title="% IRPF"),
+            y=alt.Y("IRPF_real:Q", title="% IRPF", scale=y_scale),
             tooltip=["Periodo_natural:N", alt.Tooltip("IRPF_real:Q", format=".2f")],
         )
     )
