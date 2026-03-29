@@ -201,55 +201,6 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
     )
 
 
-def _build_equity_split_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
-    df = monthly_year_scope[["Periodo_natural", "espp_gain", "rsu_gain"]].copy()
-    if hide_amounts:
-        df[["espp_gain", "rsu_gain"]] = 0.0
-    long_df = df.melt(
-        id_vars=["Periodo_natural"],
-        value_vars=["espp_gain", "rsu_gain"],
-        var_name="Bonus",
-        value_name="Importe",
-    )
-    long_df["Bonus"] = long_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
-    order = df["Periodo_natural"].tolist()
-    return (
-        alt.Chart(long_df)
-        .mark_bar(opacity=0.8)
-        .encode(
-            x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
-            y=alt.Y("Importe:Q", title="€", stack=True),
-            color=alt.Color("Bonus:N", scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"])),
-            tooltip=["Periodo_natural:N", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
-        )
-        .properties(height=280, title="ESPP vs RSU por periodo")
-    )
-
-
-def _build_avg_neto_band_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
-    df = monthly_year_scope[["Periodo_natural", "neto"]].copy()
-    df["Neto"] = pd.to_numeric(df["neto"], errors="coerce").fillna(0.0)
-    if hide_amounts:
-        df["Neto"] = 0.0
-    mean_value = float(df["Neto"].mean()) if not df.empty else 0.0
-    min_value = float(df["Neto"].min()) if not df.empty else 0.0
-    max_value = float(df["Neto"].max()) if not df.empty else 0.0
-    band_df = pd.DataFrame({"min": [min_value], "max": [max_value], "mean": [mean_value]})
-    order = df["Periodo_natural"].tolist()
-    line = (
-        alt.Chart(df)
-        .mark_line(point=True, color="#22c55e", strokeWidth=2.5)
-        .encode(
-            x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
-            y=alt.Y("Neto:Q", title="€"),
-            tooltip=["Periodo_natural:N", alt.Tooltip("Neto:Q", format=",.2f")],
-        )
-    )
-    rule_band = alt.Chart(band_df).mark_rect(opacity=0.12, color="#22c55e").encode(y="min:Q", y2="max:Q")
-    rule_mean = alt.Chart(band_df).mark_rule(strokeDash=[4, 4], color="#166534").encode(y="mean:Q")
-    return (rule_band + rule_mean + line).properties(height=280, title="Nómina neta mensual: media y rango")
-
-
 def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
     df = monthly_year_scope[
         ["Periodo_natural", "neto", "ahorro_jub_empresa", "espp_neto_estimado", "rsu_neto_estimado"]
@@ -331,12 +282,6 @@ def render_comparison_charts(
         st.altair_chart(_build_deductions_waterfall(annual_view=annual_view, hide_amounts=hide_amounts), use_container_width=True)
     with r1c2:
         st.altair_chart(_build_savings_mix_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
-
-    r2c1, r2c2 = st.columns(2)
-    with r2c1:
-        st.altair_chart(_build_equity_split_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
-    with r2c2:
-        st.altair_chart(_build_avg_neto_band_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
 
     st.altair_chart(
         _build_income_mix_area_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts),
