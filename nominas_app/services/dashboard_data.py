@@ -6,6 +6,10 @@ import pandas as pd
 
 from kpi_builder import format_eur
 
+COMPARE_MODE_NONE = "Sin comparación"
+COMPARE_MODE_PREVIOUS = "Mes anterior"
+COMPARE_MODE_PREVIOUS_YEAR = "Mismo mes año anterior"
+
 
 def parse_spanish_amount_series(series: pd.Series) -> pd.Series:
     return pd.to_numeric(
@@ -20,6 +24,32 @@ class FilteredViews:
     annual_view: pd.DataFrame
     monthly_year_scope: pd.DataFrame
     period_options: list[str]
+
+
+def build_period_options(monthly: pd.DataFrame, year_option: int | str) -> list[str]:
+    if year_option == "Todos":
+        scope = monthly
+    else:
+        scope = monthly[monthly["Año"] == int(year_option)]
+    return ["Todos"] + scope["Periodo"].drop_duplicates().sort_values().tolist()
+
+
+def get_comparison_row(monthly_all: pd.DataFrame, current_row: pd.Series, compare_mode: str) -> pd.Series | None:
+    """Return the comparison row for the selected mode, if available."""
+    if compare_mode == COMPARE_MODE_NONE:
+        return None
+    monthly_sorted = monthly_all.sort_values(["Año", "Mes"]).reset_index(drop=True)
+    cur_year, cur_month = int(current_row["Año"]), int(current_row["Mes"])
+    if compare_mode == COMPARE_MODE_PREVIOUS:
+        prev = monthly_sorted[
+            (monthly_sorted["Año"] < cur_year)
+            | ((monthly_sorted["Año"] == cur_year) & (monthly_sorted["Mes"] < cur_month))
+        ]
+        return prev.iloc[-1] if not prev.empty else None
+    if compare_mode == COMPARE_MODE_PREVIOUS_YEAR:
+        prev = monthly_sorted[(monthly_sorted["Año"] == cur_year - 1) & (monthly_sorted["Mes"] == cur_month)]
+        return prev.iloc[-1] if not prev.empty else None
+    return None
 
 
 def filter_kpi_views(
@@ -100,4 +130,91 @@ def build_nominas_view(df_nominas: pd.DataFrame, year_option: int | str, period_
             (nominas_view["Año"] == int(p_year)) & (nominas_view["Mes"] == int(p_month))
         ].copy()
     return nominas_view.sort_values(["Año", "Mes", "Concepto"]).reset_index(drop=True)
+
+
+def normalize_irpf_concept(df: pd.DataFrame, concept_col: str = "Concepto", out_col: str = "Concepto_agrupado") -> pd.DataFrame:
+    out = df.copy()
+    out[out_col] = out[concept_col].astype(str)
+    irpf_mask = out[out_col].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
+    out.loc[irpf_mask, out_col] = "TRIBUTACION I.R.P.F."
+    return out
+
+
+def build_monthly_concept_delta(
+    raw_nominas: pd.DataFrame,
+    cur_year: int,
+    cur_month: int,
+    cmp_year: int,
+    cmp_month: int,
+    limit: int = 5,
+) -> pd.DataFrame:
+    raw_comp = raw_nominas.copy()
+    raw_comp["Año"] = pd.to_numeric(raw_comp["Año"], errors="coerce")
+    raw_comp["Mes"] = pd.to_numeric(raw_comp["Mes"], errors="coerce")
+    raw_comp["Importe_num"] = parse_spanish_amount_series(raw_comp["Importe"])
+
+    cur_rows = raw_comp[(raw_comp["Año"] == cur_year) & (raw_comp["Mes"] == cur_month)].copy()
+    prev_rows = raw_comp[(raw_comp["Año"] == cmp_year) & (raw_comp["Mes"] == cmp_month)].copy()
+    cur_rows = normalize_irpf_concept(cur_rows)
+    prev_rows = normalize_irpf_concept(prev_rows)
+
+    cur_agg = cur_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(columns={"Importe_num": "Actual"})
+    prev_agg = prev_rows.groupby("Concepto_agrupado", as_index=False)["Importe_num"].sum().rename(columns={"Importe_num": "Comparado"})
+    explain = cur_agg.merge(prev_agg, on="Concepto_agrupado", how="outer").fillna(0.0)
+    explain["Delta"] = explain["Actual"] - explain["Comparado"]
+    explain = explain.sort_values("Delta", ascending=False, key=lambda s: s.abs()).head(limit)
+    return explain.rename(columns={"Concepto_agrupado": "Concepto"}).reset_index(drop=True)
+
+
+def build_top_concepts(nominas_view: pd.DataFrame, limit: int = 8) -> pd.DataFrame:
+    base = nominas_view.copy()
+    base["Importe_num"] = parse_spanish_amount_series(base["Importe"])
+    return (
+        base.groupby("Concepto", as_index=False)["Importe_num"]
+        .sum()
+        .rename(columns={"Importe_num": "Importe"})
+        .sort_values("Importe", ascending=False, key=lambda s: s.abs())
+        .head(limit)
+        .reset_index(drop=True)
+    )
+
+
+def build_salary_base_outliers(nominas_view: pd.DataFrame, deviation_threshold: float = 0.20) -> list[dict[str, str]]:
+    quality_adv: list[dict[str, str]] = []
+    nom_base = nominas_view.copy()
+    nom_base["Concepto_up"] = nom_base["Concepto"].astype(str).str.upper()
+    nom_base["Importe_num"] = parse_spanish_amount_series(nom_base["Importe"])
+    salario_base = (
+        nom_base[nom_base["Concepto_up"].str.contains("SALARIO BASE", na=False)]
+        .groupby(["Año", "Mes"], as_index=False)["Importe_num"]
+        .sum()
+        .sort_values(["Año", "Mes"])
+    )
+    if salario_base.empty:
+        return quality_adv
+    med = float(salario_base["Importe_num"].median())
+    if med == 0:
+        return quality_adv
+    salario_base["desv_pct"] = (salario_base["Importe_num"] - med).abs() / abs(med)
+    outliers = salario_base[salario_base["desv_pct"] > deviation_threshold]
+    for _, r in outliers.iterrows():
+        quality_adv.append(
+            {
+                "Periodo": f"{int(r['Año'])}-{int(r['Mes']):02d}",
+                "Regla": "SALARIO BASE fuera de rango (>20% de mediana)",
+                "Valor": format_eur(float(r["Importe_num"])),
+            }
+        )
+    return quality_adv
+
+
+def build_coverage_pivot(monthly: pd.DataFrame) -> pd.DataFrame:
+    coverage = monthly[["Año", "Mes"]].copy()
+    coverage["present"] = "OK"
+    return (
+        coverage.pivot_table(index="Año", columns="Mes", values="present", aggfunc="first", fill_value="")
+        .reindex(columns=list(range(1, 13)), fill_value="")
+        .rename(columns={i: f"{i:02d}" for i in range(1, 13)})
+        .reset_index()
+    )
 

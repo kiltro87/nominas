@@ -5,7 +5,11 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import format_eur
-from nominas_app.services.dashboard_data import parse_spanish_amount_series
+from nominas_app.services.dashboard_data import (
+    COMPARE_MODE_NONE,
+    build_top_concepts,
+    get_comparison_row,
+)
 from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
 from nominas_app.ui.palette import COLOR_1, COLOR_5, legend_circle, ordered_scale
 
@@ -26,7 +30,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
 
     line = (
         alt.Chart(long_df)
-        .mark_line(point=True, strokeWidth=2.5)
+        .mark_line(point=True, strokeWidth=2.5, zindex=3)
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
@@ -47,13 +51,13 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
     bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
-        .mark_bar(opacity=1.0)
+        .mark_bar(opacity=0.3)
         .encode(
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Bonus:N",
-                scale=ordered_scale(["ESPP", "RSU"]),
+                scale=ordered_scale(["ESPP", "RSU"], start_index=2),
                 legend=legend_circle("Bonus"),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
@@ -94,7 +98,7 @@ def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
     )
     rule = (
         alt.Chart(target_df)
-        .mark_rule(color=COLOR_5, strokeDash=[6, 4])
+        .mark_rule(color=COLOR_5, strokeDash=[6, 4], zindex=4)
         .encode(y="Objetivo:Q", tooltip=[alt.Tooltip("Objetivo:Q", format=".2f")])
     )
     return (line + rule).properties(height=240, title="Seguimiento de IRPF (anual)")
@@ -154,22 +158,10 @@ def _build_annual_summary_table(annual_view: pd.DataFrame, hide_amounts: bool) -
 
 
 def _build_month_comparison(monthly_all: pd.DataFrame, monthly_view: pd.DataFrame, compare_mode: str) -> tuple[pd.Series | None, pd.Series | None]:
-    if compare_mode == "Sin comparación" or monthly_view.empty:
+    if compare_mode == COMPARE_MODE_NONE or monthly_view.empty:
         return None, None
-    monthly_sorted = monthly_all.sort_values(["Año", "Mes"]).reset_index(drop=True)
     cur = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
-    cur_year, cur_month = int(cur["Año"]), int(cur["Mes"])
-    cmp_row = None
-    if compare_mode == "Mes anterior":
-        prev = monthly_sorted[
-            (monthly_sorted["Año"] < cur_year) | ((monthly_sorted["Año"] == cur_year) & (monthly_sorted["Mes"] < cur_month))
-        ]
-        if not prev.empty:
-            cmp_row = prev.iloc[-1]
-    elif compare_mode == "Mismo mes año anterior":
-        prev = monthly_sorted[(monthly_sorted["Año"] == cur_year - 1) & (monthly_sorted["Mes"] == cur_month)]
-        if not prev.empty:
-            cmp_row = prev.iloc[-1]
+    cmp_row = get_comparison_row(monthly_all=monthly_all, current_row=cur, compare_mode=compare_mode)
     return cur, cmp_row
 
 
@@ -177,7 +169,7 @@ def _render_period_comparison(monthly_all: pd.DataFrame, monthly_view: pd.DataFr
     with st.container(border=True):
         st.markdown("##### Comparativa del periodo")
         cur, cmp_row = _build_month_comparison(monthly_all=monthly_all, monthly_view=monthly_view, compare_mode=compare_mode)
-        if compare_mode == "Sin comparación":
+        if compare_mode == COMPARE_MODE_NONE:
             st.info("Selecciona 'Comparar contra' para activar esta sección.")
             return
         if cur is None or cmp_row is None:
@@ -252,16 +244,7 @@ def _render_supporting_tables(
             st.dataframe(zebra_styler(detail.tail(6).reset_index(drop=True)), width="stretch")
         with right:
             st.caption("Top conceptos del filtro")
-            base = nominas_view.copy()
-            base["Importe_num"] = parse_spanish_amount_series(base["Importe"])
-            top = (
-                base.groupby("Concepto", as_index=False)["Importe_num"]
-                .sum()
-                .rename(columns={"Importe_num": "Importe"})
-                .sort_values("Importe", ascending=False, key=lambda s: s.abs())
-                .head(8)
-                .reset_index(drop=True)
-            )
+            top = build_top_concepts(nominas_view=nominas_view, limit=8)
             if top.empty:
                 st.info("Sin conceptos para el filtro actual.")
             else:

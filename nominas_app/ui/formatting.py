@@ -14,7 +14,6 @@ METRIC_HELP: dict[str, str] = {
     "Ahorro fiscal": "Ingresos libres de impuestos multiplicados por tipo marginal estimado + aportación empresa a jubilación.",
     "Ahorro jub. empresa": "Aportación de empresa al plan de pensiones en el periodo.",
     "Ahorro jub. empleado": "Aportación del empleado al plan de pensiones en el periodo.",
-    "Ingresos libres imp.": "Importes del periodo marcados como exentos o no sujetos a IRPF.",
     "% IRPF efectivo": "IRPF anual / Bruto anual para el año seleccionado.",
     "IRPF medio": "Promedio mensual del % IRPF en el año mostrado.",
     "Ingresos totales": "Neto + aportacion empresa a jubilacion + netos estimados de RSU y ESPP.",

@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import format_eur
-from nominas_app.services.dashboard_data import parse_spanish_amount_series
+from nominas_app.services.dashboard_data import normalize_irpf_concept, parse_spanish_amount_series
 from nominas_app.ui.formatting import apply_privacy_to_columns, show_compact_eur, zebra_styler
 
 
@@ -108,10 +108,7 @@ def render_breakdown(
     hide_amounts: bool,
 ) -> None:
     with st.expander("Desglose mensual"):
-        breakdown = nominas_view.copy()
-        breakdown["Concepto_agrupado"] = breakdown["Concepto"].astype(str)
-        irpf_mask = breakdown["Concepto_agrupado"].str.upper().str.contains(r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?", regex=True)
-        breakdown.loc[irpf_mask, "Concepto_agrupado"] = "TRIBUTACION I.R.P.F."
+        breakdown = normalize_irpf_concept(nominas_view)
         ctrl1, ctrl2, ctrl3, ctrl4, ctrl5, ctrl6 = st.columns(6)
         with ctrl1:
             grouping_mode = st.selectbox(

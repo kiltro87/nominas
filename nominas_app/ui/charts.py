@@ -22,7 +22,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
 
     line = (
         alt.Chart(long_df)
-        .mark_line(point=True, strokeWidth=2.5)
+        .mark_line(point=True, strokeWidth=2.5, zindex=3)
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
@@ -43,13 +43,13 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
     bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
-        .mark_bar(opacity=1.0)
+        .mark_bar(opacity=0.3)
         .encode(
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Bonus:N",
-                scale=ordered_scale(["ESPP", "RSU"]),
+                scale=ordered_scale(["ESPP", "RSU"], start_index=2),
                 legend=legend_circle("Bonus"),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
@@ -75,7 +75,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
     order = chart_df["Periodo_natural"].tolist()
     line = (
         alt.Chart(long_df)
-        .mark_line(point=True, strokeWidth=2.5)
+        .mark_line(point=True, strokeWidth=2.5, zindex=3)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€"),
@@ -96,13 +96,13 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
     bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
-        .mark_bar(opacity=1.0)
+        .mark_bar(opacity=0.3)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order),
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Bonus:N",
-                scale=ordered_scale(["ESPP", "RSU"]),
+                scale=ordered_scale(["ESPP", "RSU"], start_index=2),
                 legend=legend_circle("Bonus"),
             ),
             tooltip=["Periodo_natural:N", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
@@ -142,7 +142,7 @@ def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: 
             tooltip=[f"{x_col}:N", alt.Tooltip("IRPF:Q", format=".2f")],
         )
     )
-    rule = alt.Chart(target_df).mark_rule(color=COLOR_5, strokeDash=[6, 4]).encode(y="target:Q")
+    rule = alt.Chart(target_df).mark_rule(color=COLOR_5, strokeDash=[6, 4], zindex=4).encode(y="target:Q")
     return (line + rule).properties(height=300, title=title)
 
 
@@ -166,7 +166,7 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
     )
     return (
         alt.Chart(breakdown)
-        .mark_bar()
+        .mark_bar(opacity=0.3)
         .encode(
             x=alt.X("periodo:N", title=""),
             y=alt.Y("importe:Q", title="€", stack=True),
@@ -201,7 +201,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
     order = df["Periodo_natural"].tolist()
     return (
         alt.Chart(long_df)
-        .mark_bar(opacity=1.0)
+        .mark_bar(opacity=0.3)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€", stack=True),
@@ -249,7 +249,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
     order = plot_df["Periodo_natural"].tolist()
     return (
         alt.Chart(long_df)
-        .mark_area(opacity=0.9)
+        .mark_area(opacity=0.3)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€", stack=True),
@@ -272,7 +272,7 @@ def render_comparison_charts(
     period_option: str,
     hide_amounts: bool,
 ) -> None:
-    with st.container(border=True):
+    with st.container():
         st.subheader("Comparativa y evolución")
         ch1, ch2 = st.columns(2)
         with ch1:
@@ -307,7 +307,6 @@ def render_comparison_charts(
                     ),
                     use_container_width=True,
                 )
-        st.caption("Dashboards visuales complementarios")
         r1c1, r1c2 = st.columns(2)
         with r1c1:
             st.altair_chart(_build_deductions_waterfall(annual_view=annual_view, hide_amounts=hide_amounts), use_container_width=True)

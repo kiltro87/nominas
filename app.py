@@ -4,6 +4,10 @@ import streamlit as st
 from kpi_builder import build_all_kpis
 from nominas_app.services.config_loader import load_nominas_from_sheet
 from nominas_app.services.dashboard_data import (
+    COMPARE_MODE_NONE,
+    COMPARE_MODE_PREVIOUS,
+    COMPARE_MODE_PREVIOUS_YEAR,
+    build_period_options,
     build_nominas_view,
     build_quality_alerts,
     filter_kpi_views,
@@ -28,8 +32,15 @@ def load_nominas_cached() -> pd.DataFrame:
 
 st.set_page_config(page_title="Análisis de Nóminas", layout="wide")
 st.title("Análisis de Nóminas")
-st.caption("Build main: 2026-03-29-kpi-refresh")
 apply_app_styles()
+
+
+def _render_empty_tabs(actual_msg: str, ejecutivo_msg: str) -> None:
+    tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
+    with tab_actual:
+        st.info(actual_msg)
+    with tab_ejecutivo:
+        st.info(ejecutivo_msg)
 
 df_nominas = load_nominas_cached()
 if df_nominas.empty:
@@ -38,14 +49,10 @@ if df_nominas.empty:
         value=False,
         help="Oculta importes monetarios en KPIs, tablas y graficas para compartir la pantalla.",
     )
-    tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
-    with tab_actual:
-        st.info("No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.")
-    with tab_ejecutivo:
-        st.info(
-            "El dashboard ejecutivo necesita datos de 'Nominas'. "
-            "Configura secrets/acceso a Google Sheets y recarga."
-        )
+    _render_empty_tabs(
+        "No hay datos en la pestaña 'Nominas' o falta configuración de acceso a Google Sheets.",
+        "El dashboard ejecutivo necesita datos de 'Nominas'. Configura secrets/acceso a Google Sheets y recarga.",
+    )
     st.stop()
 
 monthly, annual, _ = build_kpis_cached(df_nominas)
@@ -55,11 +62,10 @@ if monthly.empty or annual.empty:
         value=False,
         help="Oculta importes monetarios en KPIs, tablas y graficas para compartir la pantalla.",
     )
-    tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
-    with tab_actual:
-        st.info("No hay suficientes datos para construir KPIs agregados todavía.")
-    with tab_ejecutivo:
-        st.info("Sin datos agregados suficientes para la vista ejecutiva.")
+    _render_empty_tabs(
+        "No hay suficientes datos para construir KPIs agregados todavía.",
+        "Sin datos agregados suficientes para la vista ejecutiva.",
+    )
     st.stop()
 
 monthly = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
@@ -76,11 +82,7 @@ with toolbar_col1:
         help="Selector principal para la vista ejecutiva y analítica.",
     )
 
-if year_option == "Todos":
-    month_scope = monthly.copy()
-else:
-    month_scope = monthly[monthly["Año"] == int(year_option)].copy()
-period_options = ["Todos"] + month_scope["Periodo"].drop_duplicates().sort_values().tolist()
+period_options = build_period_options(monthly=monthly, year_option=year_option)
 with toolbar_col2:
     period_option = st.selectbox(
         "Mes",
@@ -91,7 +93,7 @@ with toolbar_col2:
 with toolbar_col3:
     compare_mode = st.selectbox(
         "Comparar contra",
-        options=["Sin comparación", "Mes anterior", "Mismo mes año anterior"],
+        options=[COMPARE_MODE_NONE, COMPARE_MODE_PREVIOUS, COMPARE_MODE_PREVIOUS_YEAR],
         index=0,
         help="Aplica al bloque de KPIs mensuales.",
     )

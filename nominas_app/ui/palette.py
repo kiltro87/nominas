@@ -12,9 +12,11 @@ COLOR_5 = "#94a3b8"
 GLOBAL_PALETTE = [COLOR_1, COLOR_2, COLOR_3, COLOR_4, COLOR_5]
 
 
-def ordered_scale(domain: list[str]) -> alt.Scale:
-    """Return an Altair scale with global palette in fixed order."""
-    return alt.Scale(domain=domain, range=GLOBAL_PALETTE[: len(domain)])
+def ordered_scale(domain: list[str], start_index: int = 0) -> alt.Scale:
+    """Return an Altair scale with global palette in fixed order and offset."""
+    palette_len = len(GLOBAL_PALETTE)
+    colors = [GLOBAL_PALETTE[(start_index + idx) % palette_len] for idx in range(len(domain))]
+    return alt.Scale(domain=domain, range=colors)
 
 
 def legend_circle(title: str) -> alt.Legend:
