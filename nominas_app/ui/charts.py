@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from nominas_app.ui.palette import COLOR_3, COLOR_5, semantic_scale
+from nominas_app.ui.palette import COLOR_1, COLOR_5, ordered_scale
 
 
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -29,7 +29,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=semantic_scale(["Neto", "Bruto"]),
+                scale=ordered_scale(["Bruto", "Neto"]),
             ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -50,7 +50,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             color=alt.Color(
                 "Bonus:N",
                 title="Bonus",
-                scale=semantic_scale(["ESPP", "RSU"]),
+                scale=ordered_scale(["ESPP", "RSU"]),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -82,7 +82,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=semantic_scale(["Neto", "Bruto"]),
+                scale=ordered_scale(["Bruto", "Neto"]),
             ),
             tooltip=["Periodo_natural:N", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -103,7 +103,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             color=alt.Color(
                 "Bonus:N",
                 title="Bonus",
-                scale=semantic_scale(["ESPP", "RSU"]),
+                scale=ordered_scale(["ESPP", "RSU"]),
             ),
             tooltip=["Periodo_natural:N", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -135,7 +135,7 @@ def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: 
     target_df = pd.DataFrame({"target": [mean_value]})
     line = (
         alt.Chart(chart_df)
-        .mark_line(point=True, color=COLOR_3, strokeWidth=2.5)
+        .mark_line(point=True, color=COLOR_1, strokeWidth=2.5)
         .encode(
             x=alt.X(f"{x_col}:N", sort=order, title="Periodo" if x_col == "Periodo_natural" else "Año"),
             y=alt.Y("IRPF:Q", title="% IRPF", scale=y_scale),
@@ -173,7 +173,7 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
             color=alt.Color(
                 "componente:N",
                 title="Componente",
-                scale=semantic_scale(["Neto", "IRPF", "Seg. Social", "Otras deducciones"]),
+                scale=ordered_scale(["Neto", "IRPF", "Seg. Social", "Otras deducciones"]),
             ),
             tooltip=["componente:N", alt.Tooltip("importe:Q", format=",.2f")],
         )
@@ -207,7 +207,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Tipo:N",
-                scale=semantic_scale(["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"]),
+                scale=ordered_scale(["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"]),
             ),
             tooltip=["Periodo_natural:N", "Tipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -254,7 +254,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Fuente:N",
-                scale=semantic_scale(["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]),
+                scale=ordered_scale(["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]),
             ),
             tooltip=["Periodo_natural:N", "Fuente:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
