@@ -7,7 +7,7 @@ import streamlit as st
 from kpi_builder import format_eur
 from nominas_app.services.dashboard_data import parse_spanish_amount_series
 from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
-from nominas_app.ui.palette import COLOR_2, COLOR_5, ordered_scale
+from nominas_app.ui.palette import COLOR_2, COLOR_5, ordered_scale, semantic_scale
 
 
 def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -361,7 +361,7 @@ def render_executive_dashboard(
                     theta="Importe:Q",
                     color=alt.Color(
                         "Categoria:N",
-                        scale=ordered_scale(["Neto", "Deducciones", "Bonus/Acciones"]),
+                        scale=semantic_scale(["Neto", "Deducciones", "Bonus/Acciones"]),
                     ),
                     tooltip=["Categoria:N", alt.Tooltip("Importe:Q", format=",.2f")],
                 )

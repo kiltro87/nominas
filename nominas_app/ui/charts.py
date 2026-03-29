@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from nominas_app.ui.palette import COLOR_2, COLOR_5, ordered_scale
+from nominas_app.ui.palette import COLOR_2, COLOR_5, ordered_scale, semantic_scale
 
 
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -173,7 +173,7 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
             color=alt.Color(
                 "componente:N",
                 title="Componente",
-                scale=ordered_scale(["Neto", "IRPF", "Seg. Social", "Otras deducciones"]),
+                scale=semantic_scale(["Neto", "IRPF", "Seg. Social", "Otras deducciones"]),
             ),
             tooltip=["componente:N", alt.Tooltip("importe:Q", format=",.2f")],
         )
@@ -207,7 +207,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Tipo:N",
-                scale=ordered_scale(["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"]),
+                scale=semantic_scale(["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"]),
             ),
             tooltip=["Periodo_natural:N", "Tipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -254,7 +254,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Fuente:N",
-                scale=ordered_scale(["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]),
+                scale=semantic_scale(["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]),
             ),
             tooltip=["Periodo_natural:N", "Fuente:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
