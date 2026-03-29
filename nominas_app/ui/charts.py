@@ -205,17 +205,29 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
     df = monthly_year_scope[
         ["Periodo_natural", "neto", "ahorro_jub_empresa", "espp_neto_estimado", "rsu_neto_estimado"]
     ].copy()
-    df["complemento"] = (
-        pd.to_numeric(df["ahorro_jub_empresa"], errors="coerce").fillna(0.0)
-        + pd.to_numeric(df["espp_neto_estimado"], errors="coerce").fillna(0.0)
-        + pd.to_numeric(df["rsu_neto_estimado"], errors="coerce").fillna(0.0)
-    )
-    plot_df = df[["Periodo_natural", "neto", "complemento"]].rename(columns={"neto": "Neto", "complemento": "Complemento"})
+    plot_df = df.rename(
+        columns={
+            "neto": "Neto",
+            "ahorro_jub_empresa": "Ahorro jub. empresa",
+            "espp_neto_estimado": "ESPP neto estimado",
+            "rsu_neto_estimado": "RSU neto estimado",
+        }
+    )[
+        [
+            "Periodo_natural",
+            "Neto",
+            "Ahorro jub. empresa",
+            "ESPP neto estimado",
+            "RSU neto estimado",
+        ]
+    ]
     if hide_amounts:
-        plot_df[["Neto", "Complemento"]] = 0.0
+        plot_df[
+            ["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]
+        ] = 0.0
     long_df = plot_df.melt(
         id_vars=["Periodo_natural"],
-        value_vars=["Neto", "Complemento"],
+        value_vars=["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"],
         var_name="Fuente",
         value_name="Importe",
     )
@@ -226,10 +238,16 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€", stack=True),
-            color=alt.Color("Fuente:N", scale=alt.Scale(range=["#3b82f6", "#14b8a6"])),
+            color=alt.Color(
+                "Fuente:N",
+                scale=alt.Scale(
+                    domain=["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"],
+                    range=["#3b82f6", "#14b8a6", "#f59e0b", "#a855f7"],
+                ),
+            ),
             tooltip=["Periodo_natural:N", "Fuente:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
-        .properties(height=280, title="Ingresos totales: Neto vs Complemento")
+        .properties(height=280, title="Ingresos totales: desglose por componente")
     )
 
 
