@@ -7,7 +7,7 @@ import streamlit as st
 from kpi_builder import format_eur
 from nominas_app.services.dashboard_data import parse_spanish_amount_series
 from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
-from nominas_app.ui.palette import COLOR_2, COLOR_5, ordered_scale, semantic_scale
+from nominas_app.ui.palette import COLOR_3, COLOR_5, semantic_scale
 
 
 def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -33,7 +33,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=ordered_scale(["Neto", "Bruto"]),
+                scale=semantic_scale(["Neto", "Bruto"]),
             ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -54,7 +54,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             color=alt.Color(
                 "Bonus:N",
                 title="Bonus",
-                scale=ordered_scale(["ESPP", "RSU"]),
+                scale=semantic_scale(["ESPP", "RSU"]),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -85,7 +85,7 @@ def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
 
     line = (
         alt.Chart(month_df)
-        .mark_line(point=True, color=COLOR_2, strokeWidth=2.5)
+        .mark_line(point=True, color=COLOR_3, strokeWidth=2.5)
         .encode(
             x=alt.X("Periodo_natural:N", sort=month_df["Periodo_natural"].tolist(), title="Periodo"),
             y=alt.Y("IRPF_real:Q", title="% IRPF", scale=y_scale),
