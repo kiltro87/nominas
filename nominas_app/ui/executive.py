@@ -47,7 +47,7 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
     bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
-        .mark_bar(opacity=0.35)
+        .mark_bar(opacity=1.0)
         .encode(
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),

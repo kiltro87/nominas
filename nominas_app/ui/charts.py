@@ -43,7 +43,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
     bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
-        .mark_bar(opacity=0.35)
+        .mark_bar(opacity=1.0)
         .encode(
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),
@@ -96,7 +96,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
     bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
-        .mark_bar(opacity=0.35)
+        .mark_bar(opacity=1.0)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order),
             y=alt.Y("Importe:Q", title="€", stack=True),
@@ -201,7 +201,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
     order = df["Periodo_natural"].tolist()
     return (
         alt.Chart(long_df)
-        .mark_bar(opacity=0.75)
+        .mark_bar(opacity=1.0)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€", stack=True),
@@ -248,7 +248,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
     order = plot_df["Periodo_natural"].tolist()
     return (
         alt.Chart(long_df)
-        .mark_area(opacity=0.55)
+        .mark_area(opacity=0.9)
         .encode(
             x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
             y=alt.Y("Importe:Q", title="€", stack=True),
