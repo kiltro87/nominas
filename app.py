@@ -139,6 +139,7 @@ with tab_actual:
     render_comparison_charts(
         annual_view=annual_view,
         monthly_view=monthly_view,
+        monthly_year_scope=monthly_year_scope,
         year_option=year_option,
         period_option=period_option,
         hide_amounts=hide_amounts,

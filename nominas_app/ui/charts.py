@@ -136,9 +136,156 @@ def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: 
     return (line + rule).properties(height=300, title=title)
 
 
+def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    y = annual_view.sort_values("Año").iloc[-1]
+    bruto = float(y["total_devengado"])
+    irpf = float(y["irpf_importe"])
+    ss = float(y["ss_importe"])
+    neto = float(y["neto"])
+    if hide_amounts:
+        bruto, irpf, ss, neto = 0.0, 0.0, 0.0, 0.0
+    wf = pd.DataFrame(
+        [
+            {"step": "Bruto", "amount": bruto, "kind": "total"},
+            {"step": "IRPF", "amount": -irpf, "kind": "delta"},
+            {"step": "Seg. Social", "amount": -ss, "kind": "delta"},
+            {"step": "Neto", "amount": neto, "kind": "total"},
+        ]
+    )
+    wf["running"] = wf["amount"].cumsum()
+    wf["start"] = wf["running"] - wf["amount"]
+    wf.loc[wf["kind"] == "total", "start"] = 0.0
+    wf["end"] = wf["running"]
+    return (
+        alt.Chart(wf)
+        .mark_bar()
+        .encode(
+            x=alt.X("step:N", title="Componente"),
+            y=alt.Y("start:Q", title="€"),
+            y2="end:Q",
+            color=alt.Color("kind:N", scale=alt.Scale(domain=["total", "delta"], range=["#3b82f6", "#f59e0b"]), legend=None),
+            tooltip=["step:N", alt.Tooltip("amount:Q", format=",.2f")],
+        )
+        .properties(height=280, title="Puente de deducciones YTD")
+    )
+
+
+def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    df = monthly_year_scope[["Periodo_natural", "ahorro_fiscal", "ahorro_jub_total", "consumo_especie"]].copy()
+    if hide_amounts:
+        df[["ahorro_fiscal", "ahorro_jub_total", "consumo_especie"]] = 0.0
+    long_df = df.melt(
+        id_vars=["Periodo_natural"],
+        value_vars=["ahorro_fiscal", "ahorro_jub_total", "consumo_especie"],
+        var_name="Tipo",
+        value_name="Importe",
+    )
+    long_df["Tipo"] = long_df["Tipo"].map(
+        {
+            "ahorro_fiscal": "Ahorro fiscal",
+            "ahorro_jub_total": "Ahorro jubilación",
+            "consumo_especie": "Consumo en especie",
+        }
+    )
+    order = df["Periodo_natural"].tolist()
+    return (
+        alt.Chart(long_df)
+        .mark_bar(opacity=0.75)
+        .encode(
+            x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
+            y=alt.Y("Importe:Q", title="€", stack=True),
+            color=alt.Color("Tipo:N"),
+            tooltip=["Periodo_natural:N", "Tipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
+        )
+        .properties(height=280, title="Composición mensual: ahorro y consumo")
+    )
+
+
+def _build_equity_split_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    df = monthly_year_scope[["Periodo_natural", "espp_gain", "rsu_gain"]].copy()
+    if hide_amounts:
+        df[["espp_gain", "rsu_gain"]] = 0.0
+    long_df = df.melt(
+        id_vars=["Periodo_natural"],
+        value_vars=["espp_gain", "rsu_gain"],
+        var_name="Bonus",
+        value_name="Importe",
+    )
+    long_df["Bonus"] = long_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
+    order = df["Periodo_natural"].tolist()
+    return (
+        alt.Chart(long_df)
+        .mark_bar(opacity=0.8)
+        .encode(
+            x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
+            y=alt.Y("Importe:Q", title="€", stack=True),
+            color=alt.Color("Bonus:N", scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"])),
+            tooltip=["Periodo_natural:N", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
+        )
+        .properties(height=280, title="ESPP vs RSU por periodo")
+    )
+
+
+def _build_avg_neto_band_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    df = monthly_year_scope[["Periodo_natural", "neto"]].copy()
+    df["Neto"] = pd.to_numeric(df["neto"], errors="coerce").fillna(0.0)
+    if hide_amounts:
+        df["Neto"] = 0.0
+    mean_value = float(df["Neto"].mean()) if not df.empty else 0.0
+    min_value = float(df["Neto"].min()) if not df.empty else 0.0
+    max_value = float(df["Neto"].max()) if not df.empty else 0.0
+    band_df = pd.DataFrame({"min": [min_value], "max": [max_value], "mean": [mean_value]})
+    order = df["Periodo_natural"].tolist()
+    line = (
+        alt.Chart(df)
+        .mark_line(point=True, color="#22c55e", strokeWidth=2.5)
+        .encode(
+            x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
+            y=alt.Y("Neto:Q", title="€"),
+            tooltip=["Periodo_natural:N", alt.Tooltip("Neto:Q", format=",.2f")],
+        )
+    )
+    rule_band = alt.Chart(band_df).mark_rect(opacity=0.12, color="#22c55e").encode(y="min:Q", y2="max:Q")
+    rule_mean = alt.Chart(band_df).mark_rule(strokeDash=[4, 4], color="#166534").encode(y="mean:Q")
+    return (rule_band + rule_mean + line).properties(height=280, title="Nómina neta mensual: media y rango")
+
+
+def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    df = monthly_year_scope[
+        ["Periodo_natural", "neto", "ahorro_jub_empresa", "espp_neto_estimado", "rsu_neto_estimado"]
+    ].copy()
+    df["complemento"] = (
+        pd.to_numeric(df["ahorro_jub_empresa"], errors="coerce").fillna(0.0)
+        + pd.to_numeric(df["espp_neto_estimado"], errors="coerce").fillna(0.0)
+        + pd.to_numeric(df["rsu_neto_estimado"], errors="coerce").fillna(0.0)
+    )
+    plot_df = df[["Periodo_natural", "neto", "complemento"]].rename(columns={"neto": "Neto", "complemento": "Complemento"})
+    if hide_amounts:
+        plot_df[["Neto", "Complemento"]] = 0.0
+    long_df = plot_df.melt(
+        id_vars=["Periodo_natural"],
+        value_vars=["Neto", "Complemento"],
+        var_name="Fuente",
+        value_name="Importe",
+    )
+    order = plot_df["Periodo_natural"].tolist()
+    return (
+        alt.Chart(long_df)
+        .mark_area(opacity=0.55)
+        .encode(
+            x=alt.X("Periodo_natural:N", sort=order, title="Periodo"),
+            y=alt.Y("Importe:Q", title="€", stack=True),
+            color=alt.Color("Fuente:N", scale=alt.Scale(range=["#3b82f6", "#14b8a6"])),
+            tooltip=["Periodo_natural:N", "Fuente:N", alt.Tooltip("Importe:Q", format=",.2f")],
+        )
+        .properties(height=280, title="Ingresos totales: Neto vs Complemento")
+    )
+
+
 def render_comparison_charts(
     annual_view: pd.DataFrame,
     monthly_view: pd.DataFrame,
+    monthly_year_scope: pd.DataFrame,
     year_option: int | str,
     period_option: str,
     hide_amounts: bool,
@@ -177,4 +324,22 @@ def render_comparison_charts(
                 ),
                 use_container_width=True,
             )
+
+    st.markdown("#### Dashboards visuales complementarios")
+    r1c1, r1c2 = st.columns(2)
+    with r1c1:
+        st.altair_chart(_build_deductions_waterfall(annual_view=annual_view, hide_amounts=hide_amounts), use_container_width=True)
+    with r1c2:
+        st.altair_chart(_build_savings_mix_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
+
+    r2c1, r2c2 = st.columns(2)
+    with r2c1:
+        st.altair_chart(_build_equity_split_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
+    with r2c2:
+        st.altair_chart(_build_avg_neto_band_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
+
+    st.altair_chart(
+        _build_income_mix_area_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts),
+        use_container_width=True,
+    )
 
