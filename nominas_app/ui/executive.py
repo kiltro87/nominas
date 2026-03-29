@@ -50,7 +50,9 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             tooltip=["Año:O", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
-    return (bars + line).properties(height=285, title="Evolución multianual: Bruto, Neto y Bonus/Acciones")
+    return (bars + line).resolve_scale(color="independent").properties(
+        height=285, title="Evolución multianual: Bruto, Neto y Bonus/Acciones"
+    )
 
 
 def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:

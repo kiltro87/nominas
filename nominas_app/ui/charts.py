@@ -45,7 +45,9 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             tooltip=["Año:O", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
-    return (bars + line).properties(height=300, title="Evolución multianual: Bruto, Neto y Bonus/Acciones")
+    return (bars + line).resolve_scale(color="independent").properties(
+        height=300, title="Evolución multianual: Bruto, Neto y Bonus/Acciones"
+    )
 
 
 def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -88,7 +90,9 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             tooltip=["Periodo_natural:N", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
-    return (bars + line).properties(height=300, title="Evolución mensual: Bruto, Neto y Bonus/Acciones")
+    return (bars + line).resolve_scale(color="independent").properties(
+        height=300, title="Evolución mensual: Bruto, Neto y Bonus/Acciones"
+    )
 
 
 def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> alt.Chart:
