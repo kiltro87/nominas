@@ -13,6 +13,11 @@ from nominas_app.services.dashboard_data import (
 from nominas_app.ui.formatting import apply_privacy_to_columns, metric_with_help, show_eur, zebra_styler
 
 
+def _empty_metric_slot(container: st.delta_generator.DeltaGenerator) -> None:
+    """Reserve a metric slot to keep 4-column KPI grid alignment."""
+    container.metric("\u00A0", "\u00A0")
+
+
 def render_monthly_kpis_card(
     monthly_view: pd.DataFrame,
     monthly: pd.DataFrame,
@@ -64,10 +69,11 @@ def render_monthly_kpis_card(
             metric_with_help(c4, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"]), hide_amounts))
 
         ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
-        d1, d2, d3 = st.columns(3)
+        d1, d2, d3, d4 = st.columns(4)
         metric_with_help(d1, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"]), hide_amounts))
         metric_with_help(d2, "Ahorro jubilación", show_eur(ahorro_jub_mensual, hide_amounts))
         metric_with_help(d3, "Consumo en especie", show_eur(float(m["consumo_especie"]), hide_amounts))
+        _empty_metric_slot(d4)
 
         if cmp_row is not None:
             with st.expander("Explicar delta (Top 5 conceptos)"):
@@ -201,10 +207,11 @@ def render_annual_kpis_card(
         metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
         metric_with_help(b3, "Ahorro jubilación", show_eur(float(y["ahorro_jub_total"]), hide_amounts), delta=ahorro_jub_delta)
         metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         metric_with_help(c1, "Nomina neta media mensual", show_eur(float(y["media_neto_mensual"]), hide_amounts), delta=media_neto_delta)
         metric_with_help(c2, "Deducciones YTD", show_eur(float(y["total_deducir"]), hide_amounts), delta=deducciones_delta)
         metric_with_help(c3, "Bonus + acciones (YTD)", show_eur(bonus_acciones, hide_amounts), delta=bonus_acciones_delta)
+        _empty_metric_slot(c4)
 
         block_left, block_right = st.columns([3, 2])
         with block_left:
