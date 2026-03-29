@@ -184,7 +184,7 @@ def render_annual_kpis_card(
         metric_with_help(a4, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
         metric_with_help(a5, "Ingresos totales", show_eur(float(y["riqueza_real_anual"]), hide_amounts), delta=ingresos_totales_delta)
 
-        b1, b2, b3, b4, b5 = st.columns(5)
+        b1, b2, b3 = st.columns(3)
         ahorro_fiscal_delta = yoy_pct_delta(
             float(y["ahorro_fiscal"]),
             float(prev_year_agg["ahorro_fiscal"]) if prev_year_agg is not None else None,
@@ -197,17 +197,9 @@ def render_annual_kpis_card(
             float(y["consumo_especie"]),
             float(prev_year_agg["consumo_especie"]) if prev_year_agg is not None else None,
         ) if show_yoy else None
-        if show_yoy and neto_delta is not None:
-            b1.metric("Crecimiento neto YoY", neto_delta)
-        else:
-            b1.metric("Crecimiento neto YoY", "N/A")
-        if show_yoy and prev_year_agg is not None:
-            b2.metric("Delta neto vs año anterior", show_eur(float(y["neto"] - prev_year_agg["neto"]), hide_amounts))
-        else:
-            b2.metric("Delta neto vs año anterior", "N/A")
-        metric_with_help(b3, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
-        metric_with_help(b4, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts), delta=libres_imp_delta)
-        metric_with_help(b5, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
+        metric_with_help(b1, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
+        metric_with_help(b2, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts), delta=libres_imp_delta)
+        metric_with_help(b3, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
 
         block_left, block_right = st.columns([3, 2])
         with block_left:

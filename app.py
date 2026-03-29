@@ -64,12 +64,13 @@ if monthly.empty or annual.empty:
 monthly = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
 annual = annual.sort_values(["Año"]).reset_index(drop=True)
 
-available_years = sorted(int(y) for y in monthly["Año"].unique())
+available_years = sorted({int(y) for y in monthly["Año"].dropna().tolist()}, reverse=True)
+year_options = ["Todos"] + [str(y) for y in available_years]
 toolbar_col1, toolbar_col2, toolbar_col3, toolbar_col4 = st.columns([1.2, 1.2, 1.3, 1.0])
 with toolbar_col1:
     year_option = st.selectbox(
         "Año",
-        options=["Todos"] + available_years,
+        options=year_options,
         index=0,
         help="Selector principal para la vista ejecutiva y analítica.",
     )
