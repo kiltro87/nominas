@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from kpi_builder import build_all_kpis
-from nominas_app.services.config_loader import load_nominas_from_sheet
+from nominas_app.services.config_loader import get_runtime_source_label, load_nominas_from_sheet
 from nominas_app.services.dashboard_data import (
     COMPARE_MODE_NONE,
     COMPARE_MODE_PREVIOUS,
@@ -48,6 +48,7 @@ def _render_empty_tabs(actual_msg: str, ejecutivo_msg: str, intelligence_msg: st
         st.info(intelligence_msg)
 
 df_nominas = load_nominas_cached()
+st.caption(f"Fuente de datos activa: {get_runtime_source_label()} | filas cargadas: {len(df_nominas)}")
 if df_nominas.empty:
     hide_amounts = st.toggle(
         "Modo privacidad",

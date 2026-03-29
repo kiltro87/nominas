@@ -23,6 +23,14 @@ def get_runtime_config() -> dict:
     return {}
 
 
+def get_runtime_source_label() -> str:
+    cfg = get_runtime_config()
+    if cfg.get("supabase_url"):
+        url = str(cfg["supabase_url"]).replace("https://", "").replace("http://", "")
+        return f"Supabase ({url})"
+    return "Sin configuración de datos"
+
+
 def load_nominas_from_sheet() -> pd.DataFrame:
     cfg = get_runtime_config()
     if not cfg:
