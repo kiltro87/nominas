@@ -119,27 +119,22 @@ if alertas:
 tab_actual, tab_ejecutivo = st.tabs(["Dashboard actual", "Dashboard ejecutivo (Hybrid Premium)"])
 
 with tab_actual:
-    kpi_left, kpi_right = st.columns(2)
-    with kpi_left:
-        render_monthly_kpis_card(
-            monthly_view=monthly_view,
-            monthly=monthly,
-            year_option=year_option,
-            period_option=period_option,
-            compare_mode=compare_mode,
-            raw_nominas=df_nominas,
-            hide_amounts=hide_amounts,
-            columns_per_row=3,
-        )
-    with kpi_right:
-        render_annual_kpis_card(
-            annual_view=annual_view,
-            monthly=monthly,
-            monthly_view=monthly_view,
-            year_option=year_option,
-            hide_amounts=hide_amounts,
-            columns_per_row=3,
-        )
+    render_monthly_kpis_card(
+        monthly_view=monthly_view,
+        monthly=monthly,
+        year_option=year_option,
+        period_option=period_option,
+        compare_mode=compare_mode,
+        raw_nominas=df_nominas,
+        hide_amounts=hide_amounts,
+    )
+    render_annual_kpis_card(
+        annual_view=annual_view,
+        monthly=monthly,
+        monthly_view=monthly_view,
+        year_option=year_option,
+        hide_amounts=hide_amounts,
+    )
     render_comparison_charts(
         annual_view=annual_view,
         monthly_view=monthly_view,

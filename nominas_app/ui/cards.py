@@ -16,7 +16,6 @@ def render_monthly_kpis_card(
     compare_mode: str,
     raw_nominas: pd.DataFrame,
     hide_amounts: bool,
-    columns_per_row: int = 4,
 ) -> None:
     m = monthly_view.sort_values(["Año", "Mes"]).iloc[-1]
     monthly_all = monthly.sort_values(["Año", "Mes"]).reset_index(drop=True)
@@ -50,42 +49,29 @@ def render_monthly_kpis_card(
 
     with st.container(border=True):
         st.markdown(f"### {monthly_title}{compare_chip}", unsafe_allow_html=True)
-        top_cols = st.columns(columns_per_row)
-        c1, c2, c3 = top_cols[0], top_cols[1], top_cols[2]
-        c4 = top_cols[3] if columns_per_row >= 4 else None
+        c1, c2, c3, c4 = st.columns(4)
         if cmp_row is not None:
             metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"]), hide_amounts), delta=format_eur(float(m["total_devengado"] - cmp_row["total_devengado"])))
             metric_with_help(c2, "Neto", show_eur(float(m["neto"]), hide_amounts), delta=format_eur(float(m["neto"] - cmp_row["neto"])))
             metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%", delta=f"{(float(m['pct_irpf']) - float(cmp_row['pct_irpf'])) * 100:.2f} pp")
-            if c4 is not None:
-                metric_with_help(
-                    c4,
-                    "Ingresos totales",
-                    show_eur(float(m["riqueza_real_mensual"]), hide_amounts),
-                    delta=format_eur(float(m["riqueza_real_mensual"] - cmp_row["riqueza_real_mensual"])),
-                )
+            metric_with_help(
+                c4,
+                "Ingresos totales",
+                show_eur(float(m["riqueza_real_mensual"]), hide_amounts),
+                delta=format_eur(float(m["riqueza_real_mensual"] - cmp_row["riqueza_real_mensual"])),
+            )
         else:
             metric_with_help(c1, "Bruto", show_eur(float(m["total_devengado"]), hide_amounts))
             metric_with_help(c2, "Neto", show_eur(float(m["neto"]), hide_amounts))
             metric_with_help(c3, "% IRPF", f"{float(m['pct_irpf']) * 100:.2f}%")
-            if c4 is not None:
-                metric_with_help(c4, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"]), hide_amounts))
+            metric_with_help(c4, "Ingresos totales", show_eur(float(m["riqueza_real_mensual"]), hide_amounts))
 
         ahorro_jub_mensual = float(m["ahorro_jub_empresa"]) + float(m["ahorro_jub_empleado"])
-        if columns_per_row == 3:
-            row2 = st.columns(3)
-            metric_with_help(row2[0], "Ingresos totales", show_eur(float(m["riqueza_real_mensual"]), hide_amounts))
-            metric_with_help(row2[1], "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"]), hide_amounts))
-            metric_with_help(row2[2], "Ahorro jubilación", show_eur(ahorro_jub_mensual, hide_amounts))
-            row3 = st.columns(3)
-            metric_with_help(row3[0], "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"]), hide_amounts))
-            metric_with_help(row3[1], "Consumo en especie", show_eur(float(m["consumo_especie"]), hide_amounts))
-        else:
-            c5, c6, c7, c8 = st.columns(4)
-            metric_with_help(c5, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"]), hide_amounts))
-            metric_with_help(c6, "Ahorro jubilación", show_eur(ahorro_jub_mensual, hide_amounts))
-            metric_with_help(c7, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"]), hide_amounts))
-            metric_with_help(c8, "Consumo en especie", show_eur(float(m["consumo_especie"]), hide_amounts))
+        c5, c6, c7, c8 = st.columns(4)
+        metric_with_help(c5, "Ahorro fiscal", show_eur(float(m["ahorro_fiscal"]), hide_amounts))
+        metric_with_help(c6, "Ahorro jubilación", show_eur(ahorro_jub_mensual, hide_amounts))
+        metric_with_help(c7, "Ingresos libres imp.", show_eur(float(m["ingresos_libres_impuestos"]), hide_amounts))
+        metric_with_help(c8, "Consumo en especie", show_eur(float(m["consumo_especie"]), hide_amounts))
 
         if cmp_row is not None:
             with st.expander("Explicar delta (Top 5 conceptos)"):
@@ -128,7 +114,6 @@ def render_annual_kpis_card(
     monthly_view: pd.DataFrame,
     year_option: int | str,
     hide_amounts: bool,
-    columns_per_row: int = 4,
 ) -> None:
     with st.container(border=True):
         annual_title = "KPIs anuales"
@@ -171,9 +156,7 @@ def render_annual_kpis_card(
             return f"{(float(current) - float(previous)) * 100:.2f} pp YoY"
 
         irpf_medio = monthly[monthly["Año"] == int(y["Año"])]["pct_irpf"].mean()
-        top_cols = st.columns(columns_per_row)
-        a1, a2, a3 = top_cols[0], top_cols[1], top_cols[2]
-        a4 = top_cols[3] if columns_per_row >= 4 else None
+        a1, a2, a3, a4 = st.columns(4)
         bruto_delta = yoy_pct_delta(
             float(y["total_devengado"]),
             float(prev_year_agg["total_devengado"]) if prev_year_agg is not None else None,
@@ -202,9 +185,9 @@ def render_annual_kpis_card(
         metric_with_help(a1, "Bruto", show_eur(float(y["total_devengado"]), hide_amounts), delta=bruto_delta)
         metric_with_help(a2, "Neto", show_eur(float(y["neto"]), hide_amounts), delta=neto_delta)
         metric_with_help(a3, "% IRPF efectivo", f"{float(y['pct_irpf_efectivo_anual']) * 100:.2f}%", delta=irpf_efectivo_delta)
-        if a4 is not None:
-            metric_with_help(a4, "Ingresos totales", show_eur(float(y["riqueza_real_anual"]), hide_amounts), delta=ingresos_totales_delta)
+        metric_with_help(a4, "Ingresos totales", show_eur(float(y["riqueza_real_anual"]), hide_amounts), delta=ingresos_totales_delta)
 
+        b1, b2, b3, b4 = st.columns(4)
         ahorro_fiscal_delta = yoy_pct_delta(
             float(y["ahorro_fiscal"]),
             float(prev_year_agg["ahorro_fiscal"]) if prev_year_agg is not None else None,
@@ -217,20 +200,10 @@ def render_annual_kpis_card(
             float(y["consumo_especie"]),
             float(prev_year_agg["consumo_especie"]) if prev_year_agg is not None else None,
         ) if show_yoy else None
-        if columns_per_row == 3:
-            row2 = st.columns(3)
-            metric_with_help(row2[0], "Ingresos totales", show_eur(float(y["riqueza_real_anual"]), hide_amounts), delta=ingresos_totales_delta)
-            metric_with_help(row2[1], "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
-            metric_with_help(row2[2], "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
-            row3 = st.columns(3)
-            metric_with_help(row3[0], "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts), delta=libres_imp_delta)
-            metric_with_help(row3[1], "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
-        else:
-            b1, b2, b3, b4 = st.columns(4)
-            metric_with_help(b1, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
-            metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
-            metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts), delta=libres_imp_delta)
-            metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
+        metric_with_help(b1, "IRPF medio", f"{float(irpf_medio) * 100:.2f}%", delta=irpf_medio_delta)
+        metric_with_help(b2, "Ahorro fiscal", show_eur(float(y["ahorro_fiscal"]), hide_amounts), delta=ahorro_fiscal_delta)
+        metric_with_help(b3, "Ingresos libres imp.", show_eur(float(y["ingresos_libres_impuestos"]), hide_amounts), delta=libres_imp_delta)
+        metric_with_help(b4, "Consumo en especie", show_eur(float(y["consumo_especie"]), hide_amounts), delta=consumo_especie_delta)
 
         block_left, block_right = st.columns([3, 2])
         with block_left:
