@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from nominas_app.ui.palette import COLOR_1, COLOR_5, ordered_scale
+from nominas_app.ui.palette import COLOR_1, COLOR_5, legend_circle, ordered_scale
 
 
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -28,8 +28,8 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             y=alt.Y("Importe:Q", title="€"),
             color=alt.Color(
                 "Salario:N",
-                title="Salario",
                 scale=ordered_scale(["Bruto", "Neto"]),
+                legend=legend_circle("Salario"),
             ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -49,8 +49,8 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Bonus:N",
-                title="Bonus",
                 scale=ordered_scale(["ESPP", "RSU"]),
+                legend=legend_circle("Bonus"),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -81,8 +81,8 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             y=alt.Y("Importe:Q", title="€"),
             color=alt.Color(
                 "Salario:N",
-                title="Salario",
                 scale=ordered_scale(["Bruto", "Neto"]),
+                legend=legend_circle("Salario"),
             ),
             tooltip=["Periodo_natural:N", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -102,8 +102,8 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Bonus:N",
-                title="Bonus",
                 scale=ordered_scale(["ESPP", "RSU"]),
+                legend=legend_circle("Bonus"),
             ),
             tooltip=["Periodo_natural:N", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -172,8 +172,8 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
             y=alt.Y("importe:Q", title="€", stack=True),
             color=alt.Color(
                 "componente:N",
-                title="Componente",
                 scale=ordered_scale(["Neto", "IRPF", "Seg. Social", "Otras deducciones"]),
+                legend=legend_circle("Componente"),
             ),
             tooltip=["componente:N", alt.Tooltip("importe:Q", format=",.2f")],
         )
@@ -208,6 +208,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
             color=alt.Color(
                 "Tipo:N",
                 scale=ordered_scale(["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"]),
+                legend=legend_circle("Tipo"),
             ),
             tooltip=["Periodo_natural:N", "Tipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -255,6 +256,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
             color=alt.Color(
                 "Fuente:N",
                 scale=ordered_scale(["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]),
+                legend=legend_circle("Fuente"),
             ),
             tooltip=["Periodo_natural:N", "Fuente:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -270,50 +272,49 @@ def render_comparison_charts(
     period_option: str,
     hide_amounts: bool,
 ) -> None:
-    st.subheader("Comparativa y evolución")
-    ch1, ch2 = st.columns(2)
-    with ch1:
-        if year_option == "Todos" and period_option == "Todos":
-            st.altair_chart(
-                _build_multiyear_bruto_neto_bonus_chart(annual_view=annual_view, hide_amounts=hide_amounts),
-                use_container_width=True,
-            )
-        else:
-            st.altair_chart(
-                _build_monthly_bruto_neto_bonus_chart(monthly_view=monthly_view, hide_amounts=hide_amounts),
-                use_container_width=True,
-            )
-    with ch2:
-        if year_option == "Todos" and period_option == "Todos":
-            st.altair_chart(
-                _build_irpf_followup_chart(
-                    df=annual_view,
-                    x_col="Año",
-                    y_col="pct_irpf_efectivo_anual",
-                    title="Seguimiento de IRPF (anual)",
-                ),
-                use_container_width=True,
-            )
-        else:
-            st.altair_chart(
-                _build_irpf_followup_chart(
-                    df=monthly_view,
-                    x_col="Periodo_natural",
-                    y_col="pct_irpf",
-                    title="Seguimiento de IRPF (anual)",
-                ),
-                use_container_width=True,
-            )
-
-    st.markdown("#### Dashboards visuales complementarios")
-    r1c1, r1c2 = st.columns(2)
-    with r1c1:
-        st.altair_chart(_build_deductions_waterfall(annual_view=annual_view, hide_amounts=hide_amounts), use_container_width=True)
-    with r1c2:
-        st.altair_chart(_build_savings_mix_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
-
-    st.altair_chart(
-        _build_income_mix_area_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts),
-        use_container_width=True,
-    )
+    with st.container(border=True):
+        st.subheader("Comparativa y evolución")
+        ch1, ch2 = st.columns(2)
+        with ch1:
+            if year_option == "Todos" and period_option == "Todos":
+                st.altair_chart(
+                    _build_multiyear_bruto_neto_bonus_chart(annual_view=annual_view, hide_amounts=hide_amounts),
+                    use_container_width=True,
+                )
+            else:
+                st.altair_chart(
+                    _build_monthly_bruto_neto_bonus_chart(monthly_view=monthly_view, hide_amounts=hide_amounts),
+                    use_container_width=True,
+                )
+        with ch2:
+            if year_option == "Todos" and period_option == "Todos":
+                st.altair_chart(
+                    _build_irpf_followup_chart(
+                        df=annual_view,
+                        x_col="Año",
+                        y_col="pct_irpf_efectivo_anual",
+                        title="Seguimiento de IRPF (anual)",
+                    ),
+                    use_container_width=True,
+                )
+            else:
+                st.altair_chart(
+                    _build_irpf_followup_chart(
+                        df=monthly_view,
+                        x_col="Periodo_natural",
+                        y_col="pct_irpf",
+                        title="Seguimiento de IRPF (anual)",
+                    ),
+                    use_container_width=True,
+                )
+        st.caption("Dashboards visuales complementarios")
+        r1c1, r1c2 = st.columns(2)
+        with r1c1:
+            st.altair_chart(_build_deductions_waterfall(annual_view=annual_view, hide_amounts=hide_amounts), use_container_width=True)
+        with r1c2:
+            st.altair_chart(_build_savings_mix_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts), use_container_width=True)
+        st.altair_chart(
+            _build_income_mix_area_chart(monthly_year_scope=monthly_year_scope, hide_amounts=hide_amounts),
+            use_container_width=True,
+        )
 

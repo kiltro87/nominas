@@ -7,7 +7,7 @@ import streamlit as st
 from kpi_builder import format_eur
 from nominas_app.services.dashboard_data import parse_spanish_amount_series
 from nominas_app.ui.formatting import metric_with_help, show_eur, zebra_styler
-from nominas_app.ui.palette import COLOR_1, COLOR_5, ordered_scale
+from nominas_app.ui.palette import COLOR_1, COLOR_5, legend_circle, ordered_scale
 
 
 def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -32,8 +32,8 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             y=alt.Y("Importe:Q", title="€"),
             color=alt.Color(
                 "Salario:N",
-                title="Salario",
                 scale=ordered_scale(["Bruto", "Neto"]),
+                legend=legend_circle("Salario"),
             ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -53,8 +53,8 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Bonus:N",
-                title="Bonus",
                 scale=ordered_scale(["ESPP", "RSU"]),
+                legend=legend_circle("Bonus"),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -362,6 +362,7 @@ def render_executive_dashboard(
                     color=alt.Color(
                         "Categoria:N",
                         scale=ordered_scale(["Neto", "Deducciones", "Bonus/Acciones"]),
+                        legend=legend_circle("Categoria"),
                     ),
                     tooltip=["Categoria:N", alt.Tooltip("Importe:Q", format=",.2f")],
                 )
