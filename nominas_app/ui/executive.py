@@ -28,48 +28,47 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
     if hide_amounts:
         chart_df[["total_devengado", "neto", "espp_gain", "rsu_gain"]] = 0.0
 
-    long_df = chart_df.melt(
-        id_vars=["Año"],
-        value_vars=["total_devengado", "neto"],
-        var_name="Salario",
-        value_name="Importe",
+    salary_df = chart_df.melt(
+        id_vars=["Año"], value_vars=["total_devengado", "neto"], var_name="Serie", value_name="Importe"
     )
-    metric_labels = {"total_devengado": "Bruto", "neto": "Neto"}
-    long_df["Salario"] = long_df["Salario"].map(metric_labels)
+    salary_df["Grupo"] = "Salario"
+    salary_df["Serie"] = salary_df["Serie"].map({"total_devengado": "Bruto", "neto": "Neto"})
+    bonus_df = chart_df.melt(
+        id_vars=["Año"], value_vars=["espp_gain", "rsu_gain"], var_name="Serie", value_name="Importe"
+    )
+    bonus_df["Grupo"] = "Bonus"
+    bonus_df["Serie"] = bonus_df["Serie"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
+    combined_df = pd.concat([salary_df, bonus_df], ignore_index=True)
+    combined_df = _coerce_finite(combined_df, ["Importe"])
 
     line = (
-        alt.Chart(long_df)
+        alt.Chart(combined_df)
+        .transform_filter(alt.datum.Grupo == "Salario")
         .mark_line(point=True, strokeWidth=2.5)
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
             color=alt.Color(
-                "Salario:N",
+                "Serie:N",
                 scale=ordered_scale(["Bruto", "Neto"]),
                 legend=legend_circle("Salario"),
             ),
-            tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
+            tooltip=["Año:O", "Serie:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
-    bonus_df = chart_df.melt(
-        id_vars=["Año"],
-        value_vars=["espp_gain", "rsu_gain"],
-        var_name="Bonus",
-        value_name="Importe",
-    )
-    bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
-        alt.Chart(bonus_df)
-        .mark_bar(opacity=0.3)
+        alt.Chart(combined_df)
+        .transform_filter(alt.datum.Grupo == "Bonus")
+        .mark_bar(opacity=0.5)
         .encode(
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
-                "Bonus:N",
+                "Serie:N",
                 scale=ordered_scale(["ESPP", "RSU"], start_index=2),
                 legend=legend_circle("Bonus"),
             ),
-            tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
+            tooltip=["Año:O", "Serie:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
     return (bars + line).resolve_scale(color="independent").properties(
