@@ -17,11 +17,11 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
     long_df = chart_df.melt(
         id_vars=["Año"],
         value_vars=["total_devengado", "neto"],
-        var_name="Métrica",
+        var_name="Salario",
         value_name="Importe",
     )
     metric_labels = {"total_devengado": "Bruto", "neto": "Neto"}
-    long_df["Métrica"] = long_df["Métrica"].map(metric_labels)
+    long_df["Salario"] = long_df["Salario"].map(metric_labels)
 
     line = (
         alt.Chart(long_df)
@@ -29,17 +29,17 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
         .encode(
             x=alt.X("Año:O", title="Año"),
             y=alt.Y("Importe:Q", title="€"),
-            color=alt.Color("Métrica:N", title="Salario", scale=alt.Scale(range=["#3b82f6", "#22c55e"])),
-            tooltip=["Año:O", "Métrica:N", alt.Tooltip("Importe:Q", format=",.2f")],
+            color=alt.Color("Salario:N", title="Salario", scale=alt.Scale(range=["#3b82f6", "#22c55e"])),
+            tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
     bonus_df = chart_df.melt(
         id_vars=["Año"],
         value_vars=["espp_gain", "rsu_gain"],
-        var_name="BonusTipo",
+        var_name="Bonus",
         value_name="Importe",
     )
-    bonus_df["BonusTipo"] = bonus_df["BonusTipo"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
+    bonus_df["Bonus"] = bonus_df["Bonus"].map({"espp_gain": "ESPP", "rsu_gain": "RSU"})
     bars = (
         alt.Chart(bonus_df)
         .mark_bar(opacity=0.35)
@@ -47,11 +47,11 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
             x=alt.X("Año:O"),
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
-                "BonusTipo:N",
+                "Bonus:N",
                 title="Bonus",
                 scale=alt.Scale(domain=["ESPP", "RSU"], range=["#f59e0b", "#a855f7"]),
             ),
-            tooltip=["Año:O", "BonusTipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
+            tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
     )
     return (bars + line).resolve_scale(color="independent").properties(
