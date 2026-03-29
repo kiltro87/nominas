@@ -141,32 +141,36 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
     bruto = float(y["total_devengado"])
     irpf = float(y["irpf_importe"])
     ss = float(y["ss_importe"])
+    total_deducir = float(y["total_deducir"])
     neto = float(y["neto"])
+    otras_deducciones = max(total_deducir - irpf - ss, 0.0)
     if hide_amounts:
-        bruto, irpf, ss, neto = 0.0, 0.0, 0.0, 0.0
-    wf = pd.DataFrame(
+        bruto, irpf, ss, neto, otras_deducciones = 0.0, 0.0, 0.0, 0.0, 0.0
+    breakdown = pd.DataFrame(
         [
-            {"step": "Bruto", "amount": bruto, "kind": "total"},
-            {"step": "IRPF", "amount": -irpf, "kind": "delta"},
-            {"step": "Seg. Social", "amount": -ss, "kind": "delta"},
-            {"step": "Neto", "amount": neto, "kind": "total"},
+            {"periodo": "YTD", "componente": "Neto", "importe": neto},
+            {"periodo": "YTD", "componente": "IRPF", "importe": irpf},
+            {"periodo": "YTD", "componente": "Seg. Social", "importe": ss},
+            {"periodo": "YTD", "componente": "Otras deducciones", "importe": otras_deducciones},
         ]
     )
-    wf["running"] = wf["amount"].cumsum()
-    wf["start"] = wf["running"] - wf["amount"]
-    wf.loc[wf["kind"] == "total", "start"] = 0.0
-    wf["end"] = wf["running"]
     return (
-        alt.Chart(wf)
+        alt.Chart(breakdown)
         .mark_bar()
         .encode(
-            x=alt.X("step:N", title="Componente"),
-            y=alt.Y("start:Q", title="€"),
-            y2="end:Q",
-            color=alt.Color("kind:N", scale=alt.Scale(domain=["total", "delta"], range=["#3b82f6", "#f59e0b"]), legend=None),
-            tooltip=["step:N", alt.Tooltip("amount:Q", format=",.2f")],
+            x=alt.X("periodo:N", title=""),
+            y=alt.Y("importe:Q", title="€", stack=True),
+            color=alt.Color(
+                "componente:N",
+                title="Componente",
+                scale=alt.Scale(
+                    domain=["Neto", "IRPF", "Seg. Social", "Otras deducciones"],
+                    range=["#3b82f6", "#f59e0b", "#a855f7", "#94a3b8"],
+                ),
+            ),
+            tooltip=["componente:N", alt.Tooltip("importe:Q", format=",.2f")],
         )
-        .properties(height=280, title="Puente de deducciones YTD")
+        .properties(height=280, title=f"Desglose de Bruto YTD (total {bruto:,.2f} €)")
     )
 
 
