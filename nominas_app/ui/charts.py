@@ -4,12 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-# Unified ordered palette (reference: "Ingresos totales: desglose por componente")
-COLOR_1 = "#3b82f6"  # blue
-COLOR_2 = "#14b8a6"  # teal
-COLOR_3 = "#f59e0b"  # orange
-COLOR_4 = "#a855f7"  # purple
-COLOR_5 = "#94a3b8"  # slate gray
+from nominas_app.ui.palette import COLOR_2, COLOR_5, ordered_scale
 
 
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
@@ -34,7 +29,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=alt.Scale(domain=["Neto", "Bruto"], range=[COLOR_1, COLOR_2]),
+                scale=ordered_scale(["Neto", "Bruto"]),
             ),
             tooltip=["Año:O", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -55,7 +50,7 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
             color=alt.Color(
                 "Bonus:N",
                 title="Bonus",
-                scale=alt.Scale(domain=["ESPP", "RSU"], range=[COLOR_3, COLOR_4]),
+                scale=ordered_scale(["ESPP", "RSU"]),
             ),
             tooltip=["Año:O", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -87,7 +82,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             color=alt.Color(
                 "Salario:N",
                 title="Salario",
-                scale=alt.Scale(domain=["Neto", "Bruto"], range=[COLOR_1, COLOR_2]),
+                scale=ordered_scale(["Neto", "Bruto"]),
             ),
             tooltip=["Periodo_natural:N", "Salario:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -108,7 +103,7 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
             color=alt.Color(
                 "Bonus:N",
                 title="Bonus",
-                scale=alt.Scale(domain=["ESPP", "RSU"], range=[COLOR_3, COLOR_4]),
+                scale=ordered_scale(["ESPP", "RSU"]),
             ),
             tooltip=["Periodo_natural:N", "Bonus:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -178,10 +173,7 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
             color=alt.Color(
                 "componente:N",
                 title="Componente",
-                scale=alt.Scale(
-                    domain=["Neto", "IRPF", "Seg. Social", "Otras deducciones"],
-                    range=[COLOR_1, COLOR_2, COLOR_3, COLOR_5],
-                ),
+                scale=ordered_scale(["Neto", "IRPF", "Seg. Social", "Otras deducciones"]),
             ),
             tooltip=["componente:N", alt.Tooltip("importe:Q", format=",.2f")],
         )
@@ -215,10 +207,7 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Tipo:N",
-                scale=alt.Scale(
-                    domain=["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"],
-                    range=[COLOR_1, COLOR_2, COLOR_3],
-                ),
+                scale=ordered_scale(["Ahorro fiscal", "Ahorro jubilación", "Consumo en especie"]),
             ),
             tooltip=["Periodo_natural:N", "Tipo:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
@@ -265,10 +254,7 @@ def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts:
             y=alt.Y("Importe:Q", title="€", stack=True),
             color=alt.Color(
                 "Fuente:N",
-                scale=alt.Scale(
-                    domain=["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"],
-                    range=[COLOR_1, COLOR_2, COLOR_3, COLOR_4],
-                ),
+                scale=ordered_scale(["Neto", "Ahorro jub. empresa", "ESPP neto estimado", "RSU neto estimado"]),
             ),
             tooltip=["Periodo_natural:N", "Fuente:N", alt.Tooltip("Importe:Q", format=",.2f")],
         )
