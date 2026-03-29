@@ -26,7 +26,6 @@ def build_kpis_cached(df: pd.DataFrame):
     return build_all_kpis(df)
 
 
-@st.cache_data(ttl=300)
 def load_nominas_cached() -> pd.DataFrame:
     return load_nominas_from_sheet()
 
