@@ -12,27 +12,10 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 from extractor import extract_payroll, get_subcategory_rules_version
-from sheets_client import SheetsClient, ensure_header
+from nominas_app.services.supabase_client import SupabaseClient
 
 
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
-
-NOMINAS_SHEET = "Nominas"
-CONTROL_SHEET = "Control"
-
-NOMINAS_HEADER = ["Año", "Mes", "Concepto", "Importe", "Categoría", "Subcategoría", "file_id", "file_name"]
-CONTROL_HEADER = [
-    "file_id",
-    "file_name",
-    "md5_drive",
-    "source_folder_breadcrumb",
-    "renamed_to",
-    "target_folder_breadcrumb",
-    "rules_version",
-    "processed_at_utc",
-    "status",
-    "error",
-]
 
 MONTH_NAMES_ES = {
     1: "Enero",
@@ -52,7 +35,7 @@ MONTH_NAMES_ES = {
 
 def load_config(config_path: str) -> Dict[str, str]:
     cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
-    required = ["credentials_path", "drive_folder_id", "spreadsheet_id"]
+    required = ["credentials_path", "drive_folder_id", "supabase_url", "supabase_service_role_key"]
     missing = [k for k in required if not cfg.get(k)]
     if missing:
         raise ValueError(f"Faltan claves en config: {', '.join(missing)}")
@@ -237,27 +220,30 @@ def _compute_modified_after(rows: List[List[str]], lookback_hours: int = 24) -> 
     return cutoff.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def get_processing_state(sheets: SheetsClient) -> Tuple[Set[str], Set[str], Optional[str]]:
-    rows = sheets.get_all_values(CONTROL_SHEET)
+def get_processing_state(sheets: SupabaseClient) -> Tuple[Set[str], Set[str], Optional[str]]:
+    records = sheets.select("control", columns="file_id,md5_drive,processed_at_utc", order="processed_at_utc.asc")
+    rows = [["file_id", "md5_drive", "processed_at_utc"]]
+    for r in records:
+        rows.append([str(r.get("file_id", "")), str(r.get("md5_drive", "")), str(r.get("processed_at_utc", ""))])
     processed_ids, processed_md5 = _extract_processed_registry(rows)
     modified_after = _compute_modified_after(rows)
     return processed_ids, processed_md5, modified_after
 
 
-def to_nominas_rows(sheet_rows: List[Dict[str, Any]], file_id: str, file_name: str) -> List[List[Any]]:
-    rows: List[List[Any]] = []
+def to_nominas_rows(sheet_rows: List[Dict[str, Any]], file_id: str, file_name: str) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
     for r in sheet_rows:
         rows.append(
-            [
-                r["Año"],
-                r["Mes"],
-                r["Concepto"],
-                r["Importe"],
-                r["Categoría"],
-                r["Subcategoría"],
-                file_id,
-                file_name,
-            ]
+            {
+                "año": r["Año"],
+                "mes": r["Mes"],
+                "concepto": r["Concepto"],
+                "importe": r["Importe"],
+                "categoría": r["Categoría"],
+                "subcategoría": r["Subcategoría"],
+                "file_id": file_id,
+                "file_name": file_name,
+            }
         )
     return rows
 
@@ -280,14 +266,12 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
     cfg = load_config(config_path)
     credentials_path = cfg["credentials_path"]
     folder_id = cfg["drive_folder_id"]
-    spreadsheet_id = cfg["spreadsheet_id"]
+    supabase_url = cfg["supabase_url"]
+    supabase_service_role_key = cfg["supabase_service_role_key"]
+    supabase_schema = cfg.get("supabase_schema", "public")
 
     drive = build_drive_service(credentials_path)
-    sheets = SheetsClient(credentials_path, spreadsheet_id)
-    sheets.ensure_sheet(NOMINAS_SHEET)
-    sheets.ensure_sheet(CONTROL_SHEET)
-    ensure_header(sheets, NOMINAS_SHEET, NOMINAS_HEADER)
-    ensure_header(sheets, CONTROL_SHEET, CONTROL_HEADER)
+    sheets = SupabaseClient(supabase_url, supabase_service_role_key, schema=supabase_schema)
     rules_version = get_subcategory_rules_version()
 
     processed_ids, processed_md5, modified_after = get_processing_state(sheets)
@@ -328,7 +312,7 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
             result = extract_payroll(str(temp_path))
             quality_alerts = build_file_quality_alerts(result)
             nominas_rows = to_nominas_rows(result["sheet_rows"], file_id, file_name)
-            sheets.append_rows(NOMINAS_SHEET, nominas_rows)
+            sheets.insert_rows("nominas", nominas_rows)
             period = result.get("periodo", {})
             year = period.get("año")
             month = period.get("mes")
@@ -365,20 +349,22 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
             if "temp_path" in locals() and temp_path.exists():
                 temp_path.unlink(missing_ok=True)
 
-            sheets.append_rows(
-                CONTROL_SHEET,
-                [[
-                    file_id,
-                    file_name,
-                    md5,
-                    source_breadcrumb,
-                    renamed_to,
-                    target_breadcrumb,
-                    rules_version,
-                    now_utc(),
-                    status,
-                    "; ".join(quality_alerts + ([error] if error else [])),
-                ]],
+            sheets.insert_rows(
+                "control",
+                [
+                    {
+                        "file_id": file_id,
+                        "file_name": file_name,
+                        "md5_drive": md5,
+                        "source_folder_breadcrumb": source_breadcrumb,
+                        "renamed_to": renamed_to,
+                        "target_folder_breadcrumb": target_breadcrumb,
+                        "rules_version": rules_version,
+                        "processed_at_utc": now_utc(),
+                        "status": status,
+                        "error": "; ".join(quality_alerts + ([error] if error else [])),
+                    }
+                ],
             )
 
     return {
@@ -393,7 +379,7 @@ def process_new_payrolls(config_path: str, limit: int | None = None) -> Dict[str
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingesta automática de nóminas desde Drive a Google Sheets")
+    parser = argparse.ArgumentParser(description="Ingesta automática de nóminas desde Drive a Supabase")
     parser.add_argument("--config", default="config.json", help="Ruta al archivo config.json")
     parser.add_argument("--limit", type=int, default=None, help="Máximo de PDFs a procesar en esta ejecución")
     args = parser.parse_args()

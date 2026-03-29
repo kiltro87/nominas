@@ -1,4 +1,4 @@
-name: Ingesta Nominas Drive to Sheets
+name: Ingesta Nominas Drive to Supabase
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -29,7 +29,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run syntax checks
-        run: python -m py_compile extractor.py drive_ingestor.py kpi_builder.py app.py sheets_client.py
+        run: python -m py_compile extractor.py drive_ingestor.py kpi_builder.py app.py
 
       - name: Run unit tests
         run: python -m pytest -q
@@ -53,11 +53,14 @@ jobs:
         env:
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
-          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SCHEMA: ${{ secrets.SUPABASE_SCHEMA }}
         run: |
           test -n "$GOOGLE_CREDENTIALS_JSON"
           test -n "$DRIVE_FOLDER_ID"
-          test -n "$SPREADSHEET_ID"
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
           printf '%s' "$GOOGLE_CREDENTIALS_JSON" > credentials.json
           python - <<'PY'
           import json
@@ -66,7 +69,9 @@ jobs:
           cfg = {
               "credentials_path": "credentials.json",
               "drive_folder_id": os.environ["DRIVE_FOLDER_ID"],
-              "spreadsheet_id": os.environ["SPREADSHEET_ID"],
+              "supabase_url": os.environ["SUPABASE_URL"],
+              "supabase_service_role_key": os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+              "supabase_schema": os.environ.get("SUPABASE_SCHEMA", "public"),
           }
           with open("config.json", "w", encoding="utf-8") as f:
               json.dump(cfg, f, ensure_ascii=False, indent=2)

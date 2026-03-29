@@ -1,11 +1,11 @@
-# Automatización Nóminas: Drive -> Sheets + KPIs
+# Automatización Nóminas: Drive -> Supabase + KPIs
 
-Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normaliza conceptos y vuelca los datos a Google Sheets. Además, incluye dashboard Streamlit con KPIs mensuales y anuales.
+Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normaliza conceptos y vuelca los datos a Supabase (PostgreSQL). Además, incluye dashboard Streamlit con KPIs mensuales y anuales.
 
 ## Componentes
 
 - `extractor.py`: extracción PDF (multi página) + clasificación de conceptos + validación de neto.
-- `drive_ingestor.py`: ingesta automática de Drive -> Sheets (recursiva en subcarpetas), con control de duplicados.
+- `drive_ingestor.py`: ingesta automática de Drive -> Supabase (recursiva en subcarpetas), con control de duplicados.
 - `kpi_builder.py`: cálculo de métricas mensuales, anuales y comparativas YoY.
 - `app.py`: orquestador Streamlit (filtros + flujo principal).
 - `nominas_app/ui/*`: render de tarjetas, tablas, gráficas y secciones de calidad.
@@ -20,7 +20,6 @@ Este proyecto procesa PDFs de nómina desde una carpeta de Google Drive, normali
 ├── drive_ingestor.py
 ├── extractor.py
 ├── kpi_builder.py
-├── sheets_client.py
 ├── subcategorias.json
 ├── nominas_app/
 │   ├── services/
@@ -56,19 +55,20 @@ python3 -m pip install -r requirements.txt
 1. Crea un Service Account en Google Cloud.
 2. Habilita APIs:
    - Google Drive API
-   - Google Sheets API
 3. Descarga el JSON de credenciales y guárdalo como `credentials.json`.
 4. Comparte:
    - la carpeta de Drive origen
-   - la hoja de cálculo destino
    con el email del Service Account (Editor).
-5. Crea `config.json` desde `config.example.json`:
+5. Crea proyecto y tablas en Supabase (`nominas`, `control`) ejecutando `supabase/schema.sql` y copia URL/Service Role Key.
+6. Crea `config.json`:
 
 ```json
 {
   "credentials_path": "credentials.json",
   "drive_folder_id": "ID_CARPETA_DRIVE",
-  "spreadsheet_id": "ID_SPREADSHEET"
+  "supabase_url": "https://<project>.supabase.co",
+  "supabase_service_role_key": "<service_role_key>",
+  "supabase_schema": "public"
 }
 ```
 
@@ -86,15 +86,15 @@ Opcional:
 python3 drive_ingestor.py --config config.json --limit 5
 ```
 
-## 4) Qué escribe en Sheets
+## 4) Qué escribe en Supabase
 
-- Hoja `Nominas`:
+- Tabla `nominas`:
   - Año, Mes, Concepto, Importe, Categoría, Subcategoría, file_id, file_name
-- Hoja `Control`:
+- Tabla `control`:
   - file_id, file_name, md5_drive, source_folder_breadcrumb, renamed_to, target_folder_breadcrumb, rules_version, processed_at_utc, status, error
 
-`Control` evita reprocesar el mismo archivo por `file_id` y también por `md5_drive` (deduplicación lógica por contenido).
-La ingesta también acota la búsqueda por `modifiedTime` (con margen de seguridad) usando la última ejecución registrada en `Control`.
+`control` evita reprocesar el mismo archivo por `file_id` y también por `md5_drive` (deduplicación lógica por contenido).
+La ingesta también acota la búsqueda por `modifiedTime` (con margen de seguridad) usando la última ejecución registrada en `control`.
 
 ## 5) Renombrado y organización automática en Drive
 
@@ -136,8 +136,9 @@ Filtros disponibles en la app:
    - Branch: `main`
    - Main file path: `app.py`
 3. En App settings -> Secrets, añade:
-   - `SPREADSHEET_ID`
-   - `GOOGLE_CREDENTIALS_JSON` (JSON completo del service account)
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_SCHEMA` (opcional, por defecto `public`)
 4. Guarda y redeploy.
 
 Ejemplo de formato en `.streamlit/secrets.toml.example`.
@@ -158,13 +159,13 @@ Ya existe el workflow `.github/workflows/ingesta_nominas.yml`.
 
 En el repositorio: Settings -> Secrets and variables -> Actions -> New repository secret
 
-- `GOOGLE_CREDENTIALS_JSON`: contenido completo del service account JSON
 - `DRIVE_FOLDER_ID`: ID de la carpeta de Drive con las nóminas
-- `SPREADSHEET_ID`: ID del Google Sheet destino
+- `SUPABASE_URL`: URL del proyecto Supabase
+- `SUPABASE_SERVICE_ROLE_KEY`: Service Role Key de Supabase
 
 ### Ejecución
 
-- Manual: Actions -> `Ingesta Nominas Drive to Sheets` -> Run workflow
+- Manual: Actions -> `Ingesta Nominas Drive to Supabase` -> Run workflow
 - Programada: día 1 de cada mes a las 08:00 UTC
 - El workflow primero ejecuta checks (`py_compile`) y tests (`pytest`); solo si pasan, corre la ingesta.
 

@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import json
-import re
-import tempfile
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from sheets_client import SheetsClient
+from nominas_app.services.supabase_client import SupabaseClient
 
 
 def get_runtime_config() -> dict:
@@ -18,33 +14,11 @@ def get_runtime_config() -> dict:
     if cfg_path.exists():
         return json.loads(cfg_path.read_text(encoding="utf-8"))
 
-    if "GOOGLE_CREDENTIALS_JSON" in st.secrets and "SPREADSHEET_ID" in st.secrets:
-        temp_creds = Path(tempfile.gettempdir()) / "streamlit_credentials.json"
-        raw_secret: Any = st.secrets["GOOGLE_CREDENTIALS_JSON"]
-        payload: dict[str, Any]
-        if isinstance(raw_secret, Mapping):
-            payload = dict(raw_secret)
-        else:
-            raw_text = str(raw_secret).strip()
-            try:
-                payload = json.loads(raw_text)
-            except json.JSONDecodeError:
-                pattern = r'("private_key"\s*:\s*")(.*?)(")'
-                match = re.search(pattern, raw_text, flags=re.DOTALL)
-                if not match:
-                    raise
-                raw_key = match.group(2).replace("\\n", "\n")
-                escaped_key = raw_key.replace("\\", "\\\\").replace("\n", "\\n")
-                fixed = raw_text[: match.start(2)] + escaped_key + raw_text[match.end(2) :]
-                payload = json.loads(fixed)
-
-        if "private_key" in payload and isinstance(payload["private_key"], str):
-            payload["private_key"] = payload["private_key"].replace("\r\n", "\n")
-
-        temp_creds.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    if "SUPABASE_URL" in st.secrets and "SUPABASE_SERVICE_ROLE_KEY" in st.secrets:
         return {
-            "credentials_path": str(temp_creds),
-            "spreadsheet_id": str(st.secrets["SPREADSHEET_ID"]),
+            "supabase_url": str(st.secrets["SUPABASE_URL"]),
+            "supabase_service_role_key": str(st.secrets["SUPABASE_SERVICE_ROLE_KEY"]),
+            "supabase_schema": str(st.secrets.get("SUPABASE_SCHEMA", "public")),
         }
     return {}
 
@@ -54,12 +28,31 @@ def load_nominas_from_sheet() -> pd.DataFrame:
     if not cfg:
         return pd.DataFrame()
     try:
-        client = SheetsClient(cfg["credentials_path"], cfg["spreadsheet_id"])
-        values = client.get_all_values("Nominas")
+        client = SupabaseClient(
+            url=cfg["supabase_url"],
+            service_role_key=cfg["supabase_service_role_key"],
+            schema=cfg.get("supabase_schema", "public"),
+        )
+        rows = client.select("nominas", columns="*", order="año.asc,mes.asc,concepto.asc")
     except Exception as exc:  # noqa: BLE001
-        st.warning(f"No se pudo cargar 'Nominas' desde Google Sheets: {exc}")
+        st.warning(f"No se pudo cargar 'nominas' desde Supabase: {exc}")
         return pd.DataFrame()
-    if len(values) < 2:
+    if not rows:
         return pd.DataFrame()
-    return pd.DataFrame(values[1:], columns=values[0])
+    columns = {
+        "año": "Año",
+        "mes": "Mes",
+        "concepto": "Concepto",
+        "importe": "Importe",
+        "categoría": "Categoría",
+        "subcategoría": "Subcategoría",
+        "file_id": "file_id",
+        "file_name": "file_name",
+    }
+    df = pd.DataFrame(rows).rename(columns=columns)
+    required = ["Año", "Mes", "Concepto", "Importe", "Categoría", "Subcategoría", "file_id", "file_name"]
+    for col in required:
+        if col not in df.columns:
+            df[col] = ""
+    return df[required]
 
