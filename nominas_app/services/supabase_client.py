@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 
@@ -39,11 +40,19 @@ class SupabaseClient:
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
         req = Request(url=url, data=data, method=method, headers=self._headers(headers))
-        with urlopen(req) as resp:  # nosec B310 - trusted supabase endpoint
-            raw = resp.read().decode("utf-8").strip()
-            if not raw:
-                return None
-            return json.loads(raw)
+        try:
+            with urlopen(req) as resp:  # nosec B310 - trusted supabase endpoint
+                raw = resp.read().decode("utf-8").strip()
+                if not raw:
+                    return None
+                return json.loads(raw)
+        except HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8")
+            except Exception:  # noqa: BLE001
+                detail = ""
+            raise RuntimeError(f"Supabase API error {exc.code} on {method} {path}: {detail}") from exc
 
     def select(
         self,
@@ -53,16 +62,34 @@ class SupabaseClient:
         order: str | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        params: dict[str, str] = {"select": columns}
+        base_params: dict[str, str] = {"select": columns}
         if filters:
             for k, v in filters.items():
-                params[k] = f"eq.{v}"
+                base_params[k] = f"eq.{v}"
         if order:
-            params["order"] = order
+            base_params["order"] = order
+
         if limit is not None:
+            params = dict(base_params)
             params["limit"] = str(limit)
-        out = self._request("GET", f"/rest/v1/{table}", params=params)
-        return out if isinstance(out, list) else []
+            out = self._request("GET", f"/rest/v1/{table}", params=params)
+            return out if isinstance(out, list) else []
+
+        # Auto-pagination for PostgREST default row limits.
+        page_size = 1000
+        offset = 0
+        all_rows: list[dict[str, Any]] = []
+        while True:
+            params = dict(base_params)
+            params["limit"] = str(page_size)
+            params["offset"] = str(offset)
+            chunk = self._request("GET", f"/rest/v1/{table}", params=params)
+            rows = chunk if isinstance(chunk, list) else []
+            all_rows.extend(rows)
+            if len(rows) < page_size:
+                break
+            offset += page_size
+        return all_rows
 
     def insert_rows(self, table: str, rows: list[dict[str, Any]]) -> None:
         if not rows:
