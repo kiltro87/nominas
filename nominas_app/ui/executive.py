@@ -22,7 +22,18 @@ def _coerce_finite(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     return out
 
 
+def _empty_chart(title: str, height: int = 260) -> alt.Chart:
+    return (
+        alt.Chart(pd.DataFrame({"msg": ["Sin datos para el filtro actual"]}))
+        .mark_text(size=13)
+        .encode(text="msg:N")
+        .properties(height=height, title=title)
+    )
+
+
 def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    if annual_view.empty:
+        return _empty_chart("Evolución multianual: Bruto, Neto y Bonus/Acciones", height=285)
     chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
     chart_df = _coerce_finite(chart_df, ["total_devengado", "neto", "espp_gain", "rsu_gain"])
     if hide_amounts:
@@ -77,6 +88,8 @@ def _build_multiyear_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt
 
 
 def _build_irpf_chart(monthly_year_scope: pd.DataFrame) -> alt.Chart:
+    if monthly_year_scope.empty:
+        return _empty_chart("Seguimiento de IRPF (anual)", height=240)
     month_df = monthly_year_scope[["Periodo_natural", "pct_irpf"]].copy()
     month_df["IRPF_real"] = pd.to_numeric(month_df["pct_irpf"], errors="coerce").fillna(0.0) * 100
     month_df = _coerce_finite(month_df, ["IRPF_real"])

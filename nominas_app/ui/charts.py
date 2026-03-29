@@ -15,7 +15,18 @@ def _coerce_finite(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     return out
 
 
+def _empty_chart(title: str, height: int = 280) -> alt.Chart:
+    return (
+        alt.Chart(pd.DataFrame({"msg": ["Sin datos para el filtro actual"]}))
+        .mark_text(size=13)
+        .encode(text="msg:N")
+        .properties(height=height, title=title)
+    )
+
+
 def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    if annual_view.empty:
+        return _empty_chart("Evolución multianual: Bruto, Neto y Bonus/Acciones", height=300)
     chart_df = annual_view[["Año", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
     chart_df = _coerce_finite(chart_df, ["total_devengado", "neto", "espp_gain", "rsu_gain"])
     if hide_amounts:
@@ -70,6 +81,8 @@ def _build_multiyear_bruto_neto_bonus_chart(annual_view: pd.DataFrame, hide_amou
 
 
 def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    if monthly_view.empty:
+        return _empty_chart("Evolución mensual: Bruto, Neto y Bonus/Acciones", height=300)
     chart_df = monthly_view[["Periodo_natural", "total_devengado", "neto", "espp_gain", "rsu_gain"]].copy()
     chart_df = _coerce_finite(chart_df, ["total_devengado", "neto", "espp_gain", "rsu_gain"])
     if hide_amounts:
@@ -124,6 +137,8 @@ def _build_monthly_bruto_neto_bonus_chart(monthly_view: pd.DataFrame, hide_amoun
 
 
 def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: str) -> alt.Chart:
+    if df.empty:
+        return _empty_chart(title, height=300)
     chart_df = df[[x_col, y_col]].copy()
     chart_df["IRPF"] = pd.to_numeric(chart_df[y_col], errors="coerce").fillna(0.0) * 100.0
     values = pd.to_numeric(chart_df["IRPF"], errors="coerce").dropna()
@@ -157,6 +172,8 @@ def _build_irpf_followup_chart(df: pd.DataFrame, x_col: str, y_col: str, title: 
 
 
 def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    if annual_view.empty:
+        return _empty_chart("Desglose de Bruto YTD", height=280)
     y = annual_view.sort_values("Año").iloc[-1]
     bruto = float(y["total_devengado"])
     irpf = float(y["irpf_importe"])
@@ -193,6 +210,8 @@ def _build_deductions_waterfall(annual_view: pd.DataFrame, hide_amounts: bool) -
 
 
 def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    if monthly_year_scope.empty:
+        return _empty_chart("Composición mensual: ahorro y consumo", height=280)
     df = monthly_year_scope[["Periodo_natural", "ahorro_fiscal", "ahorro_jub_total", "consumo_especie"]].copy()
     df = _coerce_finite(df, ["ahorro_fiscal", "ahorro_jub_total", "consumo_especie"])
     if hide_amounts:
@@ -230,6 +249,8 @@ def _build_savings_mix_chart(monthly_year_scope: pd.DataFrame, hide_amounts: boo
 
 
 def _build_income_mix_area_chart(monthly_year_scope: pd.DataFrame, hide_amounts: bool) -> alt.Chart:
+    if monthly_year_scope.empty:
+        return _empty_chart("Ingresos totales: desglose por componente", height=280)
     df = monthly_year_scope[
         ["Periodo_natural", "neto", "ahorro_jub_empresa", "espp_neto_estimado", "rsu_neto_estimado"]
     ].copy()
@@ -287,6 +308,9 @@ def render_comparison_charts(
     period_option: str,
     hide_amounts: bool,
 ) -> None:
+    if annual_view.empty and monthly_view.empty:
+        st.info("Sin datos suficientes para renderizar la sección de comparativa y evolución.")
+        return
     with st.container():
         st.subheader("Comparativa y evolución")
         ch1, ch2 = st.columns(2)
