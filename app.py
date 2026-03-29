@@ -21,7 +21,6 @@ from nominas_app.ui.style import apply_app_styles
 from nominas_app.ui.tables import render_breakdown, render_monthly_detail
 
 
-@st.cache_data(ttl=300)
 def build_kpis_cached(df: pd.DataFrame):
     return build_all_kpis(df)
 

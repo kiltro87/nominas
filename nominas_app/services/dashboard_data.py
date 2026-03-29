@@ -12,10 +12,20 @@ COMPARE_MODE_PREVIOUS_YEAR = "Mismo mes año anterior"
 
 
 def parse_spanish_amount_series(series: pd.Series) -> pd.Series:
-    return pd.to_numeric(
-        series.astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False),
-        errors="coerce",
-    ).fillna(0.0)
+    def parse_value(v: object) -> float:
+        s = str(v).strip()
+        if not s:
+            return 0.0
+        if "," in s and "." in s:
+            s = s.replace(".", "").replace(",", ".")
+        elif "," in s:
+            s = s.replace(",", ".")
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0
+
+    return series.map(parse_value).astype(float).fillna(0.0)
 
 
 @dataclass
