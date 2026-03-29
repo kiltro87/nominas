@@ -32,8 +32,16 @@ def _as_float(series: pd.Series) -> pd.Series:
         s = str(v).strip()
         if not s:
             return 0.0
-        # Normaliza formato español/europeo: 1.234,56 -> 1234.56
-        s = s.replace(".", "").replace(",", ".")
+        # Soporta ambos formatos:
+        # - ES: 1.234,56
+        # - SQL/EN: 1234.56
+        if "," in s and "." in s:
+            # Asumimos estilo ES con miles "." y decimal ","
+            s = s.replace(".", "").replace(",", ".")
+        elif "," in s:
+            # Solo coma -> decimal coma
+            s = s.replace(",", ".")
+        # Solo punto -> decimal punto (no tocar)
         try:
             return float(s)
         except ValueError:
