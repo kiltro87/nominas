@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -31,6 +32,11 @@ MONTH_NAMES_ES = {
     11: "Noviembre",
     12: "Diciembre",
 }
+
+IRPF_CONCEPT_RE = re.compile(
+    r"^TRIBUTACION\s+I\.?R\.?P\.?F\.?\s*([0-9]+(?:[.,][0-9]+)?)?\s*$",
+    flags=re.IGNORECASE,
+)
 
 
 def load_config(config_path: str) -> Dict[str, str]:
@@ -230,17 +236,50 @@ def get_processing_state(sheets: SupabaseClient) -> Tuple[Set[str], Set[str], Op
     return processed_ids, processed_md5, modified_after
 
 
+def _normalize_concept(concept: str) -> str:
+    raw = str(concept or "").strip()
+    if IRPF_CONCEPT_RE.match(raw):
+        return "Tributación I.R.P.F"
+    return raw
+
+
+def _extract_irpf_percentage(concept: str) -> float | None:
+    raw = str(concept or "").strip()
+    m = IRPF_CONCEPT_RE.match(raw)
+    if not m or not m.group(1):
+        return None
+    return round(float(m.group(1).replace(",", ".")), 2)
+
+
 def to_nominas_rows(sheet_rows: List[Dict[str, Any]], file_id: str, file_name: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
+    irpf_pct: float | None = None
     for r in sheet_rows:
+        concepto_raw = str(r.get("Concepto", ""))
+        concepto_normalizado = _normalize_concept(concepto_raw)
+        if irpf_pct is None:
+            irpf_pct = _extract_irpf_percentage(concepto_raw)
         rows.append(
             {
                 "año": r["Año"],
                 "mes": r["Mes"],
-                "concepto": r["Concepto"],
+                "concepto": concepto_normalizado,
                 "importe": r["Importe"],
                 "categoría": r["Categoría"],
                 "subcategoría": r["Subcategoría"],
+                "file_id": file_id,
+                "file_name": file_name,
+            }
+        )
+    if rows and irpf_pct is not None:
+        rows.append(
+            {
+                "año": rows[0]["año"],
+                "mes": rows[0]["mes"],
+                "concepto": "% IRPF",
+                "importe": irpf_pct,
+                "categoría": "Impuesto IRPF",
+                "subcategoría": "Porcentaje",
                 "file_id": file_id,
                 "file_name": file_name,
             }

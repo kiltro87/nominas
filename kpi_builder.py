@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Dict, Tuple
 
 import pandas as pd
@@ -75,6 +74,7 @@ def _build_base(df: pd.DataFrame) -> pd.DataFrame:
     out.loc[refund_mask, "Importe"] = out.loc[refund_mask, "Importe"].abs()
     out["is_retrib_flexible"] = out["Concepto_norm"].str.contains("RETRIB. FLEXIBLE", regex=False)
     out["is_irpf_subcat"] = out["Subcat_norm"] == "IMPUESTOS (IRPF)"
+    out["is_irpf_pct_concept"] = out["Concepto_norm"] == "% IRPF"
     out["is_ss_subcat"] = out["Subcat_norm"] == "SEGURIDAD SOCIAL"
     out["is_fijo_subcat"] = out["Subcat_norm"] == "INGRESO FIJO"
     out["is_variable_subcat"] = out["Subcat_norm"].str.startswith("INGRESO VARIABLE")
@@ -93,16 +93,6 @@ def _build_base(df: pd.DataFrame) -> pd.DataFrame:
     out["Periodo"] = out["Año"].astype(str) + "-" + out["Mes"].astype(str).str.zfill(2)
     out["Periodo_natural"] = out["Mes"].map(MONTH_NAMES_ES) + " " + out["Año"].astype(str)
     return out
-
-
-def _extract_irpf_pct_from_concept(series: pd.Series) -> float | None:
-    # Caso típico: "TRIBUTACION I.R.P.F.33,17"
-    pattern = re.compile(r"I\.?R\.?P\.?F\.?\s*([0-9]{1,2},[0-9]{2})", flags=re.IGNORECASE)
-    for value in series.astype(str):
-        m = pattern.search(value)
-        if m:
-            return float(m.group(1).replace(",", ".")) / 100.0
-    return None
 
 
 def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
@@ -155,8 +145,10 @@ def build_monthly_kpis(df_nominas: pd.DataFrame) -> pd.DataFrame:
                 "espp_gain": espp_gain,
                 "rsu_gain": rsu_gain,
                 "Periodo_natural": f"{MONTH_NAMES_ES.get(int(month), str(month))} {year}",
-                "irpf_pct_nomina": _extract_irpf_pct_from_concept(
-                    g.loc[g["is_irpf_subcat"], "Concepto"]
+                "irpf_pct_nomina": (
+                    g.loc[g["is_irpf_pct_concept"], "Importe"].iloc[0] / 100.0
+                    if g["is_irpf_pct_concept"].any()
+                    else None
                 ),
             }
         )
